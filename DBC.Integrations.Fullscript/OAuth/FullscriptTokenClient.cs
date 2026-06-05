@@ -72,5 +72,49 @@ namespace DBC.Integrations.Fullscript.OAuth
                 }
             }
         }
+
+        public async Task<FullscriptTokenResponse> RefreshAccessTokenAsync(FullscriptConfiguration configuration, string refreshToken)
+        {
+            if (configuration == null)
+            {
+                throw new ArgumentNullException("configuration");
+            }
+
+            configuration.ValidateForTokenExchange();
+
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                throw new ArgumentException("Refresh token is required.", "refreshToken");
+            }
+
+            var values = new Dictionary<string, string>
+            {
+                { "grant_type", "refresh_token" },
+                { "refresh_token", refreshToken },
+                { "client_id", configuration.ClientId },
+                { "client_secret", configuration.ClientSecret }
+            };
+
+            using (var content = new FormUrlEncodedContent(values))
+            {
+                using (var response = await _httpClient.PostAsync(configuration.TokenUrl, content).ConfigureAwait(false))
+                {
+                    var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new InvalidOperationException(
+                            "Fullscript token refresh failed. Status: " +
+                            ((int)response.StatusCode).ToString() +
+                            " " +
+                            response.ReasonPhrase +
+                            Environment.NewLine +
+                            responseText);
+                    }
+
+                    return FullscriptTokenResponseParser.Parse(responseText);
+                }
+            }
+        }
     }
 }
