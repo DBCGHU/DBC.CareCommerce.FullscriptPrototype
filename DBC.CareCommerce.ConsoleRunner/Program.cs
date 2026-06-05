@@ -14,7 +14,6 @@ using DBC.CareCommerce.Contracts.Responses;
 using DBC.CareCommerce.Data.InMemory;
 
 
-
 namespace DBC.CareCommerce.ConsoleRunner
 {
     internal class Program
@@ -239,7 +238,7 @@ namespace DBC.CareCommerce.ConsoleRunner
 
 
             var fullscriptPatientMapRepository = new InMemoryFullscriptPatientMapRepository();
-
+            var fullscriptConnectionRepository = new InMemoryFullscriptConnectionRepository();
 
 
             Console.Write("Enter Fullscript Client ID: ");
@@ -359,6 +358,37 @@ namespace DBC.CareCommerce.ConsoleRunner
                     Console.WriteLine("GET /api/clinic succeeded.");
                     Console.WriteLine("Raw clinic JSON:");
                     Console.WriteLine(clinicJson);
+
+                    var parsedClinic = FullscriptClinicResponseParser.Parse(clinicJson);
+
+                    Console.WriteLine("Parsed Clinic:");
+                    Console.WriteLine(" - Clinic ID: " + Safe(parsedClinic.ClinicId));
+                    Console.WriteLine(" - Name: " + Safe(parsedClinic.Name));
+                    Console.WriteLine(" - Dispensary URL: " + Safe(parsedClinic.DispensaryUrl));
+
+                    var connectionService = new FullscriptConnectionService(fullscriptConnectionRepository);
+
+                    var savedConnection = connectionService.SaveConnectionFromTokenAndClinic(
+                        token,
+                        "UsSandbox",
+                        clientId,
+                        parsedClinic.ClinicId,
+                        parsedClinic.Name,
+                        parsedClinic.DispensaryUrl,
+                        parsedClinic.IntegrationId,
+                        parsedClinic.IntegrationActivatedAt);
+
+                    Console.WriteLine("Fullscript connection saved.");
+                    Console.WriteLine(" - FullscriptConnectionId: " + FormatNullable(savedConnection.FullscriptConnectionId));
+                    Console.WriteLine(" - Environment: " + Safe(savedConnection.Environment));
+                    Console.WriteLine(" - Clinic ID: " + Safe(savedConnection.ClinicId));
+                    Console.WriteLine(" - Clinic Name: " + Safe(savedConnection.ClinicName));
+                    Console.WriteLine(" - Scope: " + Safe(savedConnection.Scope));
+                    Console.WriteLine(" - Token Type: " + Safe(savedConnection.TokenType));
+                    Console.WriteLine(" - Token Expires At UTC: " + (savedConnection.TokenExpiresAtDateTime.HasValue ? savedConnection.TokenExpiresAtDateTime.Value.ToString("u") : "(none)"));
+                    Console.WriteLine(" - Has Access Token Stored: " + savedConnection.HasAccessToken());
+                    Console.WriteLine(" - Has Refresh Token Stored: " + savedConnection.HasRefreshToken());
+
                 }
                 catch (Exception ex)
                 {

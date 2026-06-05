@@ -6,6 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Sql\**" />
+    <EmbeddedResource Remove="Sql\**" />
+    <None Remove="Sql\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DBC.CareCommerce.Contracts\DBC.CareCommerce.Contracts.csproj" />
   </ItemGroup>
 
