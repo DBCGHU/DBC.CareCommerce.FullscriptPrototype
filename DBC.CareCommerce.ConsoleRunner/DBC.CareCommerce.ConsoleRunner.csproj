@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DBC.CareCommerce.Application\DBC.CareCommerce.Application.csproj" />
+    <ProjectReference Include="..\DBC.CareCommerce.Contracts\DBC.CareCommerce.Contracts.csproj" />
+    <ProjectReference Include="..\DBC.CareCommerce.Data\DBC.CareCommerce.Data.csproj" />
+    <ProjectReference Include="..\DBC.Integrations.Fullscript\DBC.Integrations.Fullscript.csproj" />
+  </ItemGroup>
+
+</Project>

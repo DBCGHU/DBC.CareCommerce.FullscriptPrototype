@@ -1,0 +1,39 @@
+.vs/
+bin/
+obj/
+
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+[Bb]in/
+[Oo]bj/
+
+TestResults/
+.vstest/
+
+*.nupkg
+packages/
+
+*.log
+
+appsettings.Development.json
+appsettings.Local.json
+*.local.json
+
+*.pdb
+*.cache
+*.tmp
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# Visual Studio Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db 

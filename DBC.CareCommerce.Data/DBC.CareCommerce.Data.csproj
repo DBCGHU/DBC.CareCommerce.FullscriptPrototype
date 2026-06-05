@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyTitle>DBC Care Commerce Data</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DBC.CareCommerce.Contracts\DBC.CareCommerce.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
