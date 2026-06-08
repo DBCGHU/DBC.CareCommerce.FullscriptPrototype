@@ -1,19 +1,20 @@
-﻿using System;
-using System.Diagnostics;
-using DBC.Integrations.Fullscript.Configuration;
-using DBC.Integrations.Fullscript.OAuth;
-using DBC.Integrations.Fullscript.Client;
-using DBC.Integrations.Fullscript.Services;
-using DBC.CareCommerce.Application.Services;
+﻿using DBC.CareCommerce.Application.Services;
 using DBC.CareCommerce.Contracts.Enums;
 using DBC.CareCommerce.Contracts.Mapping;
 using DBC.CareCommerce.Contracts.Models;
+using DBC.CareCommerce.Contracts.Repositories;
 using DBC.CareCommerce.Contracts.Requests;
 using DBC.CareCommerce.Contracts.Responses;
-using DBC.CareCommerce.Data.InMemory;
 using DBC.CareCommerce.Data.DataAccess;
+using DBC.CareCommerce.Data.InMemory;
 using DBC.CareCommerce.Data.Repositories;
 using DBC.CareCommerce.Data.Security;
+using DBC.Integrations.Fullscript.Client;
+using DBC.Integrations.Fullscript.Configuration;
+using DBC.Integrations.Fullscript.OAuth;
+using DBC.Integrations.Fullscript.Services;
+using System;
+using System.Diagnostics;
 
 
 namespace DBC.CareCommerce.ConsoleRunner
@@ -58,6 +59,7 @@ namespace DBC.CareCommerce.ConsoleRunner
             ICatalogItemRepository catalogRepository = new SqlCatalogItemRepository(sqlConnectionFactory);
             ICareItemRepository careItemRepository = new SqlCareItemRepository(sqlConnectionFactory);
             IPendingChargeRepository pendingChargeRepository = new SqlPendingChargeRepository(sqlConnectionFactory);
+            IFullscriptTransactionRepository fullscriptTransactionRepository = new SqlFullscriptTransactionRepository(sqlConnectionFactory);
 
             var catalogMapper = new CatalogItemMapper();
 
@@ -87,7 +89,8 @@ namespace DBC.CareCommerce.ConsoleRunner
             var appService = new CareItemApplicationService(
                 catalogRepository,
                 careItemRepository,
-                pendingChargeRepository);
+                pendingChargeRepository,
+                fullscriptTransactionRepository);
 
             var localInventoryRequest = new CreateCareItemRequest
             {

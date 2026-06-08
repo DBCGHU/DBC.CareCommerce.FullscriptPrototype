@@ -1,11 +1,12 @@
-﻿using System;
-using DBC.CareCommerce.Contracts.Enums;
+﻿using DBC.CareCommerce.Contracts.Enums;
 using DBC.CareCommerce.Contracts.Models;
+using DBC.CareCommerce.Contracts.Repositories;
 using DBC.CareCommerce.Contracts.Requests;
 using DBC.CareCommerce.Contracts.Responses;
 using DBC.CareCommerce.Contracts.Services;
 using DBC.CareCommerce.Contracts.Services.Contracts;
 using DBC.CareCommerce.Data.Repositories;
+using System;
 
 namespace DBC.CareCommerce.Application.Services
 {
@@ -15,11 +16,13 @@ namespace DBC.CareCommerce.Application.Services
         private readonly ICareItemRepository _careItemRepository;
         private readonly IPendingChargeRepository _pendingChargeRepository;
         private readonly CareCommerceWorkflowService _workflowService;
+        private readonly IFullscriptTransactionRepository _fullscriptTransactionRepository;
 
         public CareItemApplicationService(
             ICatalogItemRepository catalogItemRepository,
             ICareItemRepository careItemRepository,
-            IPendingChargeRepository pendingChargeRepository)
+            IPendingChargeRepository pendingChargeRepository,
+            IFullscriptTransactionRepository fullscriptTransactionRepository)
         {
             if (catalogItemRepository == null)
             {
@@ -36,9 +39,15 @@ namespace DBC.CareCommerce.Application.Services
                 throw new ArgumentNullException("pendingChargeRepository");
             }
 
+            if (fullscriptTransactionRepository == null)
+            {
+                throw new ArgumentNullException("fullscriptTransactionRepository");
+            }
+
             _catalogItemRepository = catalogItemRepository;
             _careItemRepository = careItemRepository;
             _pendingChargeRepository = pendingChargeRepository;
+            _fullscriptTransactionRepository = fullscriptTransactionRepository;
             _workflowService = new CareCommerceWorkflowService();
         }
 
@@ -102,11 +111,19 @@ namespace DBC.CareCommerce.Application.Services
                 decision.PendingCharge.PendingChargeId = pendingChargeId;
             }
 
-            /*
-             * FullscriptTransaction is intentionally not persisted here yet.
-             * That belongs to the Fullscript/integration layer once its repository
-             * and token/connection model are defined.
-             */
+            if (decision.FullscriptTransaction != null)
+            {
+                decision.FullscriptTransaction.CareItemId = careItemId;
+                decision.FullscriptTransaction.CatalogItemId = catalogItem.CatalogItemId;
+                decision.FullscriptTransaction.PatientId = request.PatientId;
+                decision.FullscriptTransaction.PatientCaseId = request.PatientCaseId;
+                decision.FullscriptTransaction.ProviderId = request.ProviderId;
+                decision.FullscriptTransaction.FullscriptProductId = catalogItem.FullscriptProductId;
+                decision.FullscriptTransaction.FullscriptVariantId = catalogItem.FullscriptVariantId;
+
+                var fullscriptTransactionId = _fullscriptTransactionRepository.Insert(decision.FullscriptTransaction);
+                decision.FullscriptTransaction.FullscriptTransactionId = fullscriptTransactionId;
+            }
 
             response.ApplyWorkflowDecision(decision);
             response.Success = response.Errors.Count == 0;
