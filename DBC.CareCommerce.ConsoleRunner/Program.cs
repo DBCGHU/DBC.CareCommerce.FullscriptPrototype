@@ -167,6 +167,25 @@ namespace DBC.CareCommerce.ConsoleRunner
             Console.WriteLine("Pending Fullscript Transactions: " + fullscriptTransactionRepository.GetPendingTransactions().Count);
 
             PrintPendingFullscriptTransactions(fullscriptTransactionRepository);
+
+            var dispatcherService = new FullscriptTransactionDispatcherService(fullscriptTransactionRepository);
+
+            var dispatchedTransactions = dispatcherService.DispatchReadyTransactions();
+
+            Console.WriteLine("Fullscript Transaction Dispatcher Stub");
+            Console.WriteLine("Dispatched Count: " + dispatchedTransactions.Count);
+
+            foreach (var transaction in dispatchedTransactions)
+            {
+                Console.WriteLine(" - FullscriptTransactionId: " + FormatNullable(transaction.FullscriptTransactionId));
+                Console.WriteLine("   Status: " + Safe(transaction.Status));
+                Console.WriteLine("   TreatmentPlanId: " + Safe(transaction.FullscriptTreatmentPlanId));
+                Console.WriteLine("   ErrorMessage: " + Safe(transaction.ErrorMessage));
+            }
+
+            Console.WriteLine();
+
+            PrintPendingFullscriptTransactions(fullscriptTransactionRepository);
         }
 
         private static void PrintPendingFullscriptTransactions(IFullscriptTransactionRepository fullscriptTransactionRepository)
