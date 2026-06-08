@@ -44,7 +44,18 @@ namespace DBC.CareCommerce.ConsoleRunner
 
         private static void RunApplicationServiceDemo()
         {
-            var catalogRepository = new InMemoryCatalogItemRepository();
+            var connectionString = Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION");
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                Console.WriteLine("Missing SQL connection string.");
+                Console.WriteLine("Set environment variable DBC_CARECOMMERCE_SQL_CONNECTION before running the application-service demo.");
+                return;
+            }
+
+            var sqlConnectionFactory = new SqlConnectionFactory(connectionString);
+
+            ICatalogItemRepository catalogRepository = new SqlCatalogItemRepository(sqlConnectionFactory);
             var careItemRepository = new InMemoryCareItemRepository();
             var pendingChargeRepository = new InMemoryPendingChargeRepository();
 
@@ -143,7 +154,7 @@ namespace DBC.CareCommerce.ConsoleRunner
             PrintCreateCareItemResponse("Create Fullscript Care Item", fullscriptResponse);
 
             Console.WriteLine("Repository counts:");
-            Console.WriteLine("Catalog Items: " + catalogRepository.GetAll().Count);
+            Console.WriteLine("Catalog Items: " + catalogRepository.Search(null).Count);
             Console.WriteLine("Care Items: " + careItemRepository.GetAll().Count);
             Console.WriteLine("Pending Charges: " + pendingChargeRepository.GetAll().Count);
         }
