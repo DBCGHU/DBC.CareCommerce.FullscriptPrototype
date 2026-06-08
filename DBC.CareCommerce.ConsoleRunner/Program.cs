@@ -57,7 +57,7 @@ namespace DBC.CareCommerce.ConsoleRunner
 
             ICatalogItemRepository catalogRepository = new SqlCatalogItemRepository(sqlConnectionFactory);
             ICareItemRepository careItemRepository = new SqlCareItemRepository(sqlConnectionFactory);
-            var pendingChargeRepository = new InMemoryPendingChargeRepository();
+            IPendingChargeRepository pendingChargeRepository = new SqlPendingChargeRepository(sqlConnectionFactory);
 
             var catalogMapper = new CatalogItemMapper();
 
@@ -156,7 +156,7 @@ namespace DBC.CareCommerce.ConsoleRunner
             Console.WriteLine("Repository counts:");
             Console.WriteLine("Catalog Items: " + catalogRepository.Search(null).Count);
             Console.WriteLine("Care Items: " + careItemRepository.GetByPatientCase(5001, 9001).Count);
-            Console.WriteLine("Pending Charges: " + pendingChargeRepository.GetAll().Count);
+            Console.WriteLine("Pending Charges: " + pendingChargeRepository.GetPendingForPatientCase(5001, 9001).Count);
         }
 
         private static void PrintCreateCareItemResponse(string title, CreateCareItemResponse response)
