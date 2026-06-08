@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DBC.CareCommerce.Contracts\DBC.CareCommerce.Contracts.csproj" />
   </ItemGroup>
 
