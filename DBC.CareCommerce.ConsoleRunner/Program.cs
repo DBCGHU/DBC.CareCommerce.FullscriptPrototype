@@ -11,6 +11,8 @@ using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Requests;
 using DBC.CareCommerce.Contracts.Responses;
 using DBC.CareCommerce.Data.InMemory;
+using DBC.CareCommerce.Data.DataAccess;
+using DBC.CareCommerce.Data.Repositories;
 
 
 
@@ -236,8 +238,15 @@ namespace DBC.CareCommerce.ConsoleRunner
             Console.WriteLine("Fullscript OAuth Authorize URL Demo");
             Console.WriteLine();
 
-            var fullscriptPatientMapRepository = new InMemoryFullscriptPatientMapRepository();
-            var fullscriptConnectionRepository = new InMemoryFullscriptConnectionRepository();
+            //var fullscriptPatientMapRepository = new InMemoryFullscriptPatientMapRepository();
+            //var fullscriptConnectionRepository = new InMemoryFullscriptConnectionRepository();
+
+            var connectionString = "Server=LAPTOP-PP8RICNN\\SQL2019;Database=Hosenfeld;Trusted_Connection=True;TrustServerCertificate=True;";
+
+            var sqlConnectionFactory = new SqlConnectionFactory(connectionString);
+
+            IFullscriptConnectionRepository fullscriptConnectionRepository = new SqlFullscriptConnectionRepository(sqlConnectionFactory);
+            IFullscriptPatientMapRepository fullscriptPatientMapRepository = new SqlFullscriptPatientMapRepository(sqlConnectionFactory);
 
             Console.Write("Enter Fullscript Client ID: ");
             var clientId = Console.ReadLine();
