@@ -254,7 +254,7 @@ namespace DBC.CareCommerce.ConsoleRunner
             IFullscriptConnectionRepository fullscriptConnectionRepository = new SqlFullscriptConnectionRepository(sqlConnectionFactory);
             IFullscriptPatientMapRepository fullscriptPatientMapRepository = new SqlFullscriptPatientMapRepository(sqlConnectionFactory);
 
-            var tokenEncryptionService = new DevelopmentTokenEncryptionService();
+            var tokenEncryptionService = new CompositeTokenEncryptionService(new DpapiTokenEncryptionService(), new DevelopmentTokenEncryptionService());
 
             Console.Write("Enter Fullscript Client ID: ");
             var clientId = Console.ReadLine();
