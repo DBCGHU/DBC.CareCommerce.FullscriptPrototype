@@ -241,7 +241,14 @@ namespace DBC.CareCommerce.ConsoleRunner
             //var fullscriptPatientMapRepository = new InMemoryFullscriptPatientMapRepository();
             //var fullscriptConnectionRepository = new InMemoryFullscriptConnectionRepository();
 
-            var connectionString = "Server=LAPTOP-PP8RICNN\\SQL2019;Database=Hosenfeld;Trusted_Connection=True;TrustServerCertificate=True;";
+            var connectionString = Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION");
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                Console.WriteLine("Missing SQL connection string.");
+                Console.WriteLine("Set environment variable DBC_CARECOMMERCE_SQL_CONNECTION before running the console demo.");
+                return;
+            }
 
             var sqlConnectionFactory = new SqlConnectionFactory(connectionString);
 
