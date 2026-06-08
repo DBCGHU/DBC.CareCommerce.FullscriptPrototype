@@ -828,6 +828,43 @@ ORDER BY CatalogItemID DESC;";
             return Enum.TryParse(value, true, out parsed) ? parsed : InventoryAction.None;
         }
 
+        public CatalogItemDto GetByFullscriptVariantId(string fullscriptVariantId)
+        {
+            if (string.IsNullOrWhiteSpace(fullscriptVariantId))
+            {
+                return null;
+            }
+
+            const string sql = @"
+SELECT TOP 1
+    CatalogItemID
+FROM dbo.CatalogItem
+WHERE
+    Active = 1
+    AND FullscriptVariantID = @FullscriptVariantID
+ORDER BY CatalogItemID;";
+
+            using (SqlConnection connection = _connectionFactory.CreateConnection())
+            {
+                connection.Open();
+
+                using (SqlCommand command = new SqlCommand(sql, connection))
+                {
+                    command.Parameters.Add("@FullscriptVariantID", SqlDbType.NVarChar, 200).Value = fullscriptVariantId;
+
+                    object result = command.ExecuteScalar();
+
+                    if (result == null || result == DBNull.Value)
+                    {
+                        return null;
+                    }
+
+                    int catalogItemId = Convert.ToInt32(result);
+                    return GetById(catalogItemId);
+                }
+            }
+        }
+
         private static void AddNVarChar(SqlCommand command, string parameterName, string value, int size)
         {
             SqlParameter parameter = command.Parameters.Add(parameterName, SqlDbType.NVarChar, size);

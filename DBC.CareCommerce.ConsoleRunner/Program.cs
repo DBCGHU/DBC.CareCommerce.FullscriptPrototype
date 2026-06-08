@@ -68,7 +68,9 @@ namespace DBC.CareCommerce.ConsoleRunner
                 priceSell: 24.99m,
                 onHand: 12m);
 
-            var localVitaminDCatalogItemId = catalogRepository.Insert(localVitaminD);
+            localVitaminD = GetOrInsertDemoCatalogItem(catalogRepository, localVitaminD);
+
+            var localVitaminDCatalogItemId = localVitaminD.CatalogItemId.Value;
 
             var fullscriptVitaminD = catalogMapper.FromFullscriptVariant(
                 productId: "fs_prod_123",
@@ -78,7 +80,9 @@ namespace DBC.CareCommerce.ConsoleRunner
                 sku: "D3-5000",
                 msrp: 22.50m);
 
-            var fullscriptVitaminDCatalogItemId = catalogRepository.Insert(fullscriptVitaminD);
+            fullscriptVitaminD = GetOrInsertDemoCatalogItem(catalogRepository, fullscriptVitaminD);
+
+            var fullscriptVitaminDCatalogItemId = fullscriptVitaminD.CatalogItemId.Value;
 
             var appService = new CareItemApplicationService(
                 catalogRepository,
@@ -532,6 +536,49 @@ namespace DBC.CareCommerce.ConsoleRunner
             };
 
             Process.Start(startInfo);
+        }
+
+        private static CatalogItemDto GetOrInsertDemoCatalogItem(ICatalogItemRepository catalogRepository, CatalogItemDto item)
+        {
+            if (catalogRepository == null)
+            {
+                throw new ArgumentNullException("catalogRepository");
+            }
+
+            if (item == null)
+            {
+                throw new ArgumentNullException("item");
+            }
+
+            CatalogItemDto existing = null;
+
+            if (item.ProductId.HasValue)
+            {
+                existing = catalogRepository.GetByProductId(item.ProductId.Value);
+            }
+
+            if (existing == null && item.SupplementId.HasValue)
+            {
+                existing = catalogRepository.GetBySupplementId(item.SupplementId.Value);
+            }
+
+            if (existing == null && !string.IsNullOrWhiteSpace(item.FullscriptVariantId))
+            {
+                SqlCatalogItemRepository sqlCatalogRepository = catalogRepository as SqlCatalogItemRepository;
+
+                if (sqlCatalogRepository != null)
+                {
+                    existing = sqlCatalogRepository.GetByFullscriptVariantId(item.FullscriptVariantId);
+                }
+            }
+
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            int newId = catalogRepository.Insert(item);
+            return catalogRepository.GetById(newId);
         }
     }
 }
