@@ -6,21 +6,29 @@ using DBC.Integrations.Fullscript.Client;
 using DBC.Integrations.Fullscript.Configuration;
 using DBC.Integrations.Fullscript.Models;
 using DBC.Integrations.Fullscript.OAuth;
+using DBC.CareCommerce.Data.Security;
 
 namespace DBC.Integrations.Fullscript.Services
 {
     public class FullscriptOAuthApplicationService
     {
         private readonly IFullscriptConnectionRepository _connectionRepository;
+        private readonly ITokenEncryptionService _tokenEncryptionService;
 
-        public FullscriptOAuthApplicationService(IFullscriptConnectionRepository connectionRepository)
+        public FullscriptOAuthApplicationService(IFullscriptConnectionRepository connectionRepository, ITokenEncryptionService tokenEncryptionService)
         {
             if (connectionRepository == null)
             {
                 throw new ArgumentNullException("connectionRepository");
             }
 
+            if (tokenEncryptionService == null)
+            {
+                throw new ArgumentNullException("tokenEncryptionService");
+            }
+
             _connectionRepository = connectionRepository;
+            _tokenEncryptionService = tokenEncryptionService;
         }
 
         public async Task<FullscriptConnectionDto> CompleteAuthorizationAsync(
@@ -57,7 +65,7 @@ namespace DBC.Integrations.Fullscript.Services
                 throw new InvalidOperationException("Fullscript clinic response did not include a clinic ID.");
             }
 
-            var connectionService = new FullscriptConnectionService(_connectionRepository);
+            var connectionService = new FullscriptConnectionService(_connectionRepository, _tokenEncryptionService);
 
             var connection = connectionService.SaveConnectionFromTokenAndClinic(
                 token,
@@ -97,9 +105,9 @@ namespace DBC.Integrations.Fullscript.Services
 
             var refreshedToken = await tokenClient.RefreshAccessTokenAsync(
                 configuration,
-                connection.RefreshTokenEncrypted).ConfigureAwait(false);
+                _tokenEncryptionService.Decrypt(connection.RefreshTokenEncrypted)).ConfigureAwait(false);
 
-            var connectionService = new FullscriptConnectionService(_connectionRepository);
+            var connectionService = new FullscriptConnectionService(_connectionRepository, _tokenEncryptionService);
 
             var refreshedConnection = connectionService.SaveConnectionFromTokenAndClinic(
                 refreshedToken,
@@ -121,7 +129,7 @@ namespace DBC.Integrations.Fullscript.Services
             string environment,
             string clinicId)
         {
-            var connectionService = new FullscriptConnectionService(_connectionRepository);
+            var connectionService = new FullscriptConnectionService(_connectionRepository, _tokenEncryptionService);
 
             return connectionService.GetActiveConnection(
                 environment,

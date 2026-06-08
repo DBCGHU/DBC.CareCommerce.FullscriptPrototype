@@ -13,8 +13,7 @@ using DBC.CareCommerce.Contracts.Responses;
 using DBC.CareCommerce.Data.InMemory;
 using DBC.CareCommerce.Data.DataAccess;
 using DBC.CareCommerce.Data.Repositories;
-
-
+using DBC.CareCommerce.Data.Security;
 
 
 namespace DBC.CareCommerce.ConsoleRunner
@@ -255,6 +254,8 @@ namespace DBC.CareCommerce.ConsoleRunner
             IFullscriptConnectionRepository fullscriptConnectionRepository = new SqlFullscriptConnectionRepository(sqlConnectionFactory);
             IFullscriptPatientMapRepository fullscriptPatientMapRepository = new SqlFullscriptPatientMapRepository(sqlConnectionFactory);
 
+            var tokenEncryptionService = new DevelopmentTokenEncryptionService();
+
             Console.Write("Enter Fullscript Client ID: ");
             var clientId = Console.ReadLine();
 
@@ -343,7 +344,7 @@ namespace DBC.CareCommerce.ConsoleRunner
 
             Console.WriteLine("Client secret received. Preparing OAuth application service...");
 
-            var oauthService = new FullscriptOAuthApplicationService(fullscriptConnectionRepository);
+            var oauthService = new FullscriptOAuthApplicationService(fullscriptConnectionRepository, tokenEncryptionService);
 
             FullscriptConnectionDto savedConnection;
 

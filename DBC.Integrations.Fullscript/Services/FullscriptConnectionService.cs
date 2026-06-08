@@ -2,21 +2,29 @@
 using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Data.Repositories;
 using DBC.Integrations.Fullscript.Models;
+using DBC.CareCommerce.Data.Security;
 
 namespace DBC.Integrations.Fullscript.Services
 {
     public class FullscriptConnectionService
     {
         private readonly IFullscriptConnectionRepository _connectionRepository;
+        private readonly ITokenEncryptionService _tokenEncryptionService;
 
-        public FullscriptConnectionService(IFullscriptConnectionRepository connectionRepository)
+        public FullscriptConnectionService(IFullscriptConnectionRepository connectionRepository, ITokenEncryptionService tokenEncryptionService)
         {
             if (connectionRepository == null)
             {
                 throw new ArgumentNullException("connectionRepository");
             }
 
+            if (tokenEncryptionService == null)
+            {
+                throw new ArgumentNullException("tokenEncryptionService");
+            }
+
             _connectionRepository = connectionRepository;
+            _tokenEncryptionService = tokenEncryptionService;
         }
 
         public FullscriptConnectionDto SaveConnectionFromTokenAndClinic(
@@ -101,18 +109,10 @@ namespace DBC.Integrations.Fullscript.Services
             return _connectionRepository.GetActiveByEnvironmentAndClinic(environment, clinicId);
         }
 
-        private static void ApplyTokenToConnection(FullscriptConnectionDto connection, FullscriptTokenResponse token)
+        private void ApplyTokenToConnection(FullscriptConnectionDto connection, FullscriptTokenResponse token)
         {
-            /*
-             * Prototype note:
-             * These fields are named AccessTokenEncrypted and RefreshTokenEncrypted
-             * because production code should encrypt tokens before persistence.
-             * This prototype currently stores the raw token value in those fields.
-             * Do not use this as production token storage.
-             */
-
-            connection.AccessTokenEncrypted = token.AccessToken;
-            connection.RefreshTokenEncrypted = token.RefreshToken;
+            connection.AccessTokenEncrypted = _tokenEncryptionService.Encrypt(token.AccessToken);
+            connection.RefreshTokenEncrypted = _tokenEncryptionService.Encrypt(token.RefreshToken);
             connection.TokenType = token.TokenType;
             connection.Scope = token.Scope;
             connection.TokenReceivedDateTime = token.ReceivedDateTimeUtc;
