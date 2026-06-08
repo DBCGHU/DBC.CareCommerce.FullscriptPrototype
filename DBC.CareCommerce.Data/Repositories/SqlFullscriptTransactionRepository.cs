@@ -170,7 +170,7 @@ SELECT
     Active
 FROM dbo.FullscriptTransaction
 WHERE
-    Status = N'Pending'
+    Status = N'ReadyToSend'
     AND Active = 1
 ORDER BY FullscriptTransactionID;";
 

@@ -164,6 +164,40 @@ namespace DBC.CareCommerce.ConsoleRunner
             Console.WriteLine("Catalog Items: " + catalogRepository.Search(null).Count);
             Console.WriteLine("Care Items: " + careItemRepository.GetByPatientCase(5001, 9001).Count);
             Console.WriteLine("Pending Charges: " + pendingChargeRepository.GetPendingForPatientCase(5001, 9001).Count);
+            Console.WriteLine("Pending Fullscript Transactions: " + fullscriptTransactionRepository.GetPendingTransactions().Count);
+
+            PrintPendingFullscriptTransactions(fullscriptTransactionRepository);
+        }
+
+        private static void PrintPendingFullscriptTransactions(IFullscriptTransactionRepository fullscriptTransactionRepository)
+        {
+            if (fullscriptTransactionRepository == null)
+            {
+                throw new ArgumentNullException("fullscriptTransactionRepository");
+            }
+
+            var pendingTransactions = fullscriptTransactionRepository.GetPendingTransactions();
+
+            Console.WriteLine();
+            Console.WriteLine("Pending Fullscript Transaction Smoke Test");
+            Console.WriteLine("Count: " + pendingTransactions.Count);
+
+            foreach (var transaction in pendingTransactions)
+            {
+                Console.WriteLine(" - FullscriptTransactionId: " + FormatNullable(transaction.FullscriptTransactionId));
+                Console.WriteLine("   CareItemId: " + FormatNullable(transaction.CareItemId));
+                Console.WriteLine("   CatalogItemId: " + FormatNullable(transaction.CatalogItemId));
+                Console.WriteLine("   PatientId: " + transaction.PatientId);
+                Console.WriteLine("   PatientCaseId: " + FormatNullable(transaction.PatientCaseId));
+                Console.WriteLine("   ProviderId: " + FormatNullable(transaction.ProviderId));
+                Console.WriteLine("   ProductId: " + Safe(transaction.FullscriptProductId));
+                Console.WriteLine("   VariantId: " + Safe(transaction.FullscriptVariantId));
+                Console.WriteLine("   TreatmentPlanId: " + Safe(transaction.FullscriptTreatmentPlanId));
+                Console.WriteLine("   OrderId: " + Safe(transaction.FullscriptOrderId));
+                Console.WriteLine("   Status: " + Safe(transaction.Status));
+            }
+
+            Console.WriteLine();
         }
 
         private static void PrintCreateCareItemResponse(string title, CreateCareItemResponse response)
