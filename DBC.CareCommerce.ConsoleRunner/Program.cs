@@ -25,12 +25,47 @@ namespace DBC.CareCommerce.ConsoleRunner
         {
             try
             {
-                await RunFullscriptAuthorizeUrlDemo();
+                Console.WriteLine("======================================");
+                Console.WriteLine("DBC Care Commerce Console Runner");
+                Console.WriteLine();
+                Console.WriteLine("Select demo:");
+                Console.WriteLine("1. Run Fullscript OAuth/API demo");
+                Console.WriteLine("2. Run Care Commerce workflow demo only");
+                Console.WriteLine("3. Run both");
+                Console.WriteLine();
 
-                RunApplicationServiceDemo();
+                Console.Write("Enter selection 1, 2, or 3: ");
+                string selection = Console.ReadLine();
 
                 Console.WriteLine();
-                Console.WriteLine("Care Commerce application-service demo completed.");
+
+                if (selection == "1")
+                {
+                    await RunFullscriptAuthorizeUrlDemo();
+
+                    Console.WriteLine();
+                    Console.WriteLine("Fullscript OAuth/API demo completed.");
+                }
+                else if (selection == "2")
+                {
+                    RunApplicationServiceDemo();
+
+                    Console.WriteLine();
+                    Console.WriteLine("Care Commerce application-service demo completed.");
+                }
+                else if (selection == "3")
+                {
+                    await RunFullscriptAuthorizeUrlDemo();
+
+                    RunApplicationServiceDemo();
+
+                    Console.WriteLine();
+                    Console.WriteLine("Fullscript OAuth/API demo and Care Commerce application-service demo completed.");
+                }
+                else
+                {
+                    Console.WriteLine("Invalid selection. No demo was run.");
+                }
             }
             catch (Exception ex)
             {
