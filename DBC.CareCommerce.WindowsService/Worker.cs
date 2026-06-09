@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using DBC.CareCommerce.Application.Services;
 using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
@@ -10,6 +7,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace DBC.CareCommerce.WindowsService
 {
@@ -18,11 +18,13 @@ namespace DBC.CareCommerce.WindowsService
         private readonly ILogger<Worker> _logger;
         private readonly CareCommerceServiceSettings _settings;
         private readonly IConfiguration _configuration;
+        private readonly FullscriptTransactionDispatcherService _dispatcherService;
 
         public Worker(
             ILogger<Worker> logger,
             IOptions<CareCommerceServiceSettings> settings,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            FullscriptTransactionDispatcherService dispatcherService)
         {
             if (logger == null)
             {
@@ -39,9 +41,15 @@ namespace DBC.CareCommerce.WindowsService
                 throw new ArgumentNullException("configuration");
             }
 
+            if (dispatcherService == null)
+            {
+                throw new ArgumentNullException("dispatcherService");
+            }
+
             _logger = logger;
             _settings = settings.Value ?? new CareCommerceServiceSettings();
             _configuration = configuration;
+            _dispatcherService = dispatcherService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -69,23 +77,7 @@ namespace DBC.CareCommerce.WindowsService
 
         private void DispatchReadyFullscriptTransactions()
         {
-            string connectionString = GetSqlConnectionString();
-
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                _logger.LogWarning("SQL connection string is not configured. Fullscript transaction dispatch skipped.");
-                return;
-            }
-
-            SqlConnectionFactory sqlConnectionFactory = new SqlConnectionFactory(connectionString);
-
-            IFullscriptTransactionRepository fullscriptTransactionRepository =
-                new SqlFullscriptTransactionRepository(sqlConnectionFactory);
-
-            FullscriptTransactionDispatcherService dispatcherService =
-                new FullscriptTransactionDispatcherService(fullscriptTransactionRepository);
-
-            var dispatchedTransactions = dispatcherService.DispatchReadyTransactions();
+            var dispatchedTransactions = _dispatcherService.DispatchReadyTransactions();
 
             if (dispatchedTransactions.Count == 0)
             {
@@ -106,32 +98,6 @@ namespace DBC.CareCommerce.WindowsService
                     transaction.FullscriptTreatmentPlanId,
                     transaction.ErrorMessage);
             }
-        }
-
-        private string GetSqlConnectionString()
-        {
-            string environmentValue =
-                Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION");
-
-            if (!string.IsNullOrWhiteSpace(environmentValue))
-            {
-                return environmentValue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(_settings.SqlConnectionString))
-            {
-                return _settings.SqlConnectionString;
-            }
-
-            string configurationValue =
-                _configuration["CareCommerceService:SqlConnectionString"];
-
-            if (!string.IsNullOrWhiteSpace(configurationValue))
-            {
-                return configurationValue;
-            }
-
-            return null;
         }
 
         private int GetDispatchIntervalSeconds()
