@@ -188,6 +188,8 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<ICareItemRepository, SqlCareItemRepository>();
             builder.Services.AddScoped<IPendingChargeRepository, SqlPendingChargeRepository>();
             builder.Services.AddScoped<IFullscriptTransactionRepository, SqlFullscriptTransactionRepository>();
+            builder.Services.AddScoped<IPatientProfileRepository, SqlPatientProfileRepository>();
+            builder.Services.AddScoped<IFullscriptPatientMapRepository, SqlFullscriptPatientMapRepository>();
 
             builder.Services.AddScoped<ICareItemApplicationService, CareItemApplicationService>();
             builder.Services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
@@ -195,6 +197,7 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<CareCommerceMiddlewareCommandService>();
             builder.Services.AddScoped<CareCommerceRecommendationReadService>();
             builder.Services.AddScoped<FullscriptTransactionReadService>();
+            builder.Services.AddScoped<FullscriptPatientMapService>();
             builder.Services.AddScoped<LocalMiddlewareAuthorizationService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
             builder.Services.AddHttpClient<FullscriptHttpApiClient>();
