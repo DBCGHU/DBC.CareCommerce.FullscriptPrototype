@@ -302,11 +302,22 @@ namespace DBC.Integrations.Fullscript.Services
 
         private static int? GetIntProperty(JsonElement root, string propertyName)
         {
-            if (root.ValueKind == JsonValueKind.Object &&
-                root.TryGetProperty(propertyName, out JsonElement property) &&
-                property.TryGetInt32(out int value))
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty(propertyName, out JsonElement property))
             {
-                return value;
+                return null;
+            }
+
+            if (property.ValueKind == JsonValueKind.Number &&
+                property.TryGetInt32(out int numberValue))
+            {
+                return numberValue;
+            }
+
+            if (property.ValueKind == JsonValueKind.String &&
+                int.TryParse(property.GetString(), out int stringValue))
+            {
+                return stringValue;
             }
 
             return null;
@@ -314,11 +325,22 @@ namespace DBC.Integrations.Fullscript.Services
 
         private static long? GetLongProperty(JsonElement root, string propertyName)
         {
-            if (root.ValueKind == JsonValueKind.Object &&
-                root.TryGetProperty(propertyName, out JsonElement property) &&
-                property.TryGetInt64(out long value))
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty(propertyName, out JsonElement property))
             {
-                return value;
+                return null;
+            }
+
+            if (property.ValueKind == JsonValueKind.Number &&
+                property.TryGetInt64(out long numberValue))
+            {
+                return numberValue;
+            }
+
+            if (property.ValueKind == JsonValueKind.String &&
+                long.TryParse(property.GetString(), out long stringValue))
+            {
+                return stringValue;
             }
 
             return null;
