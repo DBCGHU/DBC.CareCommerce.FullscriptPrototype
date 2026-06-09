@@ -25,13 +25,30 @@ namespace DBC.CareCommerce.WindowsService
                 "/health",
                 () =>
                 {
-                return Results.Ok(new
-                {
-                    status = "Healthy",
-                    service = "DBC Care Commerce Windows Service",
-                    timestampUtc = DateTime.UtcNow
+                    return Results.Ok(new
+                    {
+                        status = "Healthy",
+                        service = "DBC Care Commerce Windows Service",
+                        timestampUtc = DateTime.UtcNow
+                    });
                 });
-            });
+
+            app.MapGet(
+                "/ready",
+                () =>
+                {
+                    bool sqlConnectionConfigured =
+                        !string.IsNullOrWhiteSpace(
+                            Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION"));
+
+                    return Results.Ok(new
+                    {
+                        status = sqlConnectionConfigured ? "Ready" : "NotReady",
+                        sqlConnectionConfigured = sqlConnectionConfigured,
+                        backgroundWorkerEnabled = true,
+                        timestampUtc = DateTime.UtcNow
+                    });
+                });
 
             app.MapPost(
                 "/care-commerce/recommendations/validate",
