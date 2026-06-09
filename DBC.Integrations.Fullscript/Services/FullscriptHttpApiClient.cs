@@ -14,10 +14,12 @@ namespace DBC.Integrations.Fullscript.Services
     {
         private readonly HttpClient _httpClient;
         private readonly FullscriptApiSettings _settings;
+        private readonly IFullscriptOAuthTokenProvider _oauthTokenProvider;
 
         public FullscriptHttpApiClient(
             HttpClient httpClient,
-            IOptions<FullscriptApiSettings> settings)
+            IOptions<FullscriptApiSettings> settings,
+            IFullscriptOAuthTokenProvider oauthTokenProvider)
         {
             if (httpClient == null)
             {
@@ -29,8 +31,14 @@ namespace DBC.Integrations.Fullscript.Services
                 throw new ArgumentNullException("settings");
             }
 
+            if (oauthTokenProvider == null)
+            {
+                throw new ArgumentNullException("oauthTokenProvider");
+            }
+
             _httpClient = httpClient;
             _settings = settings.Value ?? new FullscriptApiSettings();
+            _oauthTokenProvider = oauthTokenProvider;
         }
 
         public FullscriptDispatchResultDto DispatchTreatmentPlan(
@@ -260,13 +268,18 @@ namespace DBC.Integrations.Fullscript.Services
                 };
             }
 
-            if (string.IsNullOrWhiteSpace(_settings.ApiToken))
+            FullscriptOAuthTokenResult tokenResult =
+                _oauthTokenProvider.GetCurrentToken();
+
+            if (tokenResult == null ||
+                !tokenResult.Success ||
+                !tokenResult.HasAccessToken())
             {
                 return new FullscriptDispatchResultDto
                 {
                     Success = false,
                     ExternalReferenceId = null,
-                    ErrorMessage = "Fullscript API token is not configured."
+                    ErrorMessage = "Fullscript OAuth access token is not available. Complete the OAuth flow before using Fullscript HTTP client mode."
                 };
             }
 
@@ -280,11 +293,22 @@ namespace DBC.Integrations.Fullscript.Services
 
         private void ConfigureHttpClient()
         {
+            FullscriptOAuthTokenResult tokenResult =
+                _oauthTokenProvider.GetCurrentToken();
+
+            if (tokenResult == null ||
+                !tokenResult.Success ||
+                !tokenResult.HasAccessToken())
+            {
+                throw new InvalidOperationException(
+                    "Fullscript OAuth access token is not available. Complete the OAuth flow before using Fullscript HTTP client mode.");
+            }
+
             _httpClient.BaseAddress = new Uri(
                 _settings.BaseUrl.TrimEnd('/') + "/");
 
             _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", _settings.ApiToken);
+                new AuthenticationHeaderValue("Bearer", tokenResult.AccessToken);
 
             if (!_httpClient.DefaultRequestHeaders.Accept.Contains(
                 new MediaTypeWithQualityHeaderValue("application/json")))
