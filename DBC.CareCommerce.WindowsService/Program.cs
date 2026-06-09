@@ -41,10 +41,19 @@ namespace DBC.CareCommerce.WindowsService
                         !string.IsNullOrWhiteSpace(
                             Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION"));
 
+                    bool localTokenConfigured =
+                        !string.IsNullOrWhiteSpace(
+                            Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_LOCAL_TOKEN"));
+
+                    bool ready =
+                        sqlConnectionConfigured &&
+                        localTokenConfigured;
+
                     return Results.Ok(new
                     {
-                        status = sqlConnectionConfigured ? "Ready" : "NotReady",
+                        status = ready ? "Ready" : "NotReady",
                         sqlConnectionConfigured = sqlConnectionConfigured,
+                        localTokenConfigured = localTokenConfigured,
                         backgroundWorkerEnabled = true,
                         timestampUtc = DateTime.UtcNow
                     });
@@ -73,7 +82,7 @@ namespace DBC.CareCommerce.WindowsService
                         warnings = new List<string>(),
                         messages = new List<string>
                         {
-                "Validation completed. No records were created."
+                            "Validation completed. No records were created."
                         }
                     });
                 });
