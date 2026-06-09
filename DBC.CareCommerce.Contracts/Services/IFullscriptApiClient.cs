@@ -1,4 +1,4 @@
-﻿using DBC.CareCommerce.Contracts.Models;
+using DBC.CareCommerce.Contracts.Models;
 
 namespace DBC.CareCommerce.Contracts.Services
 {
@@ -6,5 +6,8 @@ namespace DBC.CareCommerce.Contracts.Services
     {
         FullscriptDispatchResultDto DispatchTreatmentPlan(
             FullscriptTransactionDto transaction);
+
+        FullscriptPatientCreateResultDto CreatePatient(
+            FullscriptPatientCreateRequestDto request);
     }
 }
