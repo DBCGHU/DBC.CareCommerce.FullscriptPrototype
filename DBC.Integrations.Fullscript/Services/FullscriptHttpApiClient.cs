@@ -126,12 +126,93 @@ namespace DBC.Integrations.Fullscript.Services
         public FullscriptPatientCreateResultDto CreatePatient(
             FullscriptPatientCreateRequestDto request)
         {
-            return new FullscriptPatientCreateResultDto
+            FullscriptDispatchResultDto configurationValidationResult =
+                ValidateConfiguration();
+
+            if (!configurationValidationResult.Success)
             {
-                Success = false,
-                FullscriptPatientId = null,
-                ErrorMessage = "Fullscript HTTP patient creation is not implemented yet."
-            };
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = configurationValidationResult.ErrorMessage
+                };
+            }
+
+            FullscriptPatientCreateResultDto requestValidationResult =
+                ValidatePatientCreateRequest(request);
+
+            if (!requestValidationResult.Success)
+            {
+                return requestValidationResult;
+            }
+
+            try
+            {
+                ConfigureHttpClient();
+
+                object requestBody = BuildPatientCreateRequest(request);
+
+                string json =
+                    JsonSerializer.Serialize(requestBody);
+
+                using (StringContent content = new StringContent(
+                    json,
+                    Encoding.UTF8,
+                    "application/json"))
+                {
+                    using (HttpResponseMessage response =
+                        _httpClient.PostAsync("api/clinic/patients", content).GetAwaiter().GetResult())
+                    {
+                        string responseBody =
+                            response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            return new FullscriptPatientCreateResultDto
+                            {
+                                Success = false,
+                                FullscriptPatientId = null,
+                                ErrorMessage =
+                                    "Fullscript patient creation request failed with status " +
+                                    ((int)response.StatusCode).ToString() +
+                                    ": " +
+                                    responseBody
+                            };
+                        }
+
+                        string fullscriptPatientId =
+                            ExtractPatientId(responseBody);
+
+                        if (string.IsNullOrWhiteSpace(fullscriptPatientId))
+                        {
+                            return new FullscriptPatientCreateResultDto
+                            {
+                                Success = false,
+                                FullscriptPatientId = null,
+                                ErrorMessage =
+                                    "Fullscript patient creation response did not include a patient identifier."
+                            };
+                        }
+
+                        return new FullscriptPatientCreateResultDto
+                        {
+                            Success = true,
+                            FullscriptPatientId = fullscriptPatientId,
+                            ErrorMessage = null
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = "Fullscript patient creation request failed: " + ex.Message
+                };
+            }
         }
 
         private FullscriptDispatchResultDto ValidateConfiguration()
@@ -248,6 +329,83 @@ namespace DBC.Integrations.Fullscript.Services
             };
         }
 
+        private static FullscriptPatientCreateResultDto ValidatePatientCreateRequest(
+            FullscriptPatientCreateRequestDto request)
+        {
+            if (request == null)
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = "Fullscript patient create request is required."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = "Fullscript patient create request email is required."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(request.FirstName))
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = "Fullscript patient create request first name is required."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(request.LastName))
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = "Fullscript patient create request last name is required."
+                };
+            }
+
+            return new FullscriptPatientCreateResultDto
+            {
+                Success = true,
+                FullscriptPatientId = null,
+                ErrorMessage = null
+            };
+        }
+
+        private static object BuildPatientCreateRequest(
+            FullscriptPatientCreateRequestDto request)
+        {
+            return new
+            {
+                email = request.Email,
+                first_name = request.FirstName,
+                last_name = request.LastName,
+                date_of_birth = FormatDateOfBirth(request.DateOfBirth),
+                metadata = new
+                {
+                    id = request.MetadataId
+                }
+            };
+        }
+
+        private static string FormatDateOfBirth(DateTime? dateOfBirth)
+        {
+            if (!dateOfBirth.HasValue)
+            {
+                return null;
+            }
+
+            return dateOfBirth.Value.ToString("yyyy-MM-dd");
+        }
+
         private static string ExtractExternalReferenceId(string responseBody)
         {
             if (string.IsNullOrWhiteSpace(responseBody))
@@ -273,6 +431,43 @@ namespace DBC.Integrations.Fullscript.Services
                 if (root.TryGetProperty("treatment_plan_id", out JsonElement treatmentPlanIdFallbackElement))
                 {
                     return treatmentPlanIdFallbackElement.ToString();
+                }
+
+                if (root.TryGetProperty("data", out JsonElement dataElement) &&
+                    dataElement.TryGetProperty("id", out JsonElement dataIdElement))
+                {
+                    return dataIdElement.ToString();
+                }
+            }
+
+            return null;
+        }
+
+        private static string ExtractPatientId(string responseBody)
+        {
+            if (string.IsNullOrWhiteSpace(responseBody))
+            {
+                return null;
+            }
+
+            using (JsonDocument document = JsonDocument.Parse(responseBody))
+            {
+                JsonElement root = document.RootElement;
+
+                if (root.TryGetProperty("patient", out JsonElement patientElement) &&
+                    patientElement.TryGetProperty("id", out JsonElement patientIdElement))
+                {
+                    return patientIdElement.ToString();
+                }
+
+                if (root.TryGetProperty("id", out JsonElement idElement))
+                {
+                    return idElement.ToString();
+                }
+
+                if (root.TryGetProperty("patient_id", out JsonElement patientIdFallbackElement))
+                {
+                    return patientIdFallbackElement.ToString();
                 }
 
                 if (root.TryGetProperty("data", out JsonElement dataElement) &&
