@@ -95,6 +95,13 @@ namespace DBC.CareCommerce.WindowsService
                 });
 
             app.MapGet(
+                "/fullscript/transactions/ready",
+                (FullscriptTransactionReadService readService) =>
+                {
+                    return Results.Ok(readService.GetReadyTransactions());
+                });
+
+            app.MapGet(
                 "/fullscript/transactions/{fullscriptTransactionId:int}",
                 (int fullscriptTransactionId, FullscriptTransactionReadService readService) =>
                 {

@@ -48,5 +48,29 @@ namespace DBC.CareCommerce.WindowsService.Services
                 }
             };
         }
+
+        public object GetReadyTransactions()
+        {
+            IList<FullscriptTransactionDto> transactions =
+                _fullscriptTransactionRepository.GetPendingTransactions();
+
+            if (transactions == null)
+            {
+                transactions = new List<FullscriptTransactionDto>();
+            }
+
+            return new
+            {
+                success = true,
+                count = transactions.Count,
+                transactions = transactions,
+                errors = new List<string>(),
+                warnings = new List<string>(),
+                messages = new List<string>
+        {
+            "Ready Fullscript transaction read completed."
+        }
+            };
+        }
     }
 }
