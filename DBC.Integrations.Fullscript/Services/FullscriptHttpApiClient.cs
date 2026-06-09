@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -36,14 +36,12 @@ namespace DBC.Integrations.Fullscript.Services
         public FullscriptDispatchResultDto DispatchTreatmentPlan(
             FullscriptTransactionDto transaction)
         {
-            if (!_settings.Enabled)
+            FullscriptDispatchResultDto configurationValidationResult =
+                ValidateConfiguration();
+
+            if (!configurationValidationResult.Success)
             {
-                return new FullscriptDispatchResultDto
-                {
-                    Success = false,
-                    ExternalReferenceId = null,
-                    ErrorMessage = "Fullscript HTTP API client is not enabled."
-                };
+                return configurationValidationResult;
             }
 
             if (transaction == null ||
@@ -54,26 +52,6 @@ namespace DBC.Integrations.Fullscript.Services
                     Success = false,
                     ExternalReferenceId = null,
                     ErrorMessage = "Fullscript transaction ID is required before dispatching."
-                };
-            }
-
-            if (string.IsNullOrWhiteSpace(_settings.BaseUrl))
-            {
-                return new FullscriptDispatchResultDto
-                {
-                    Success = false,
-                    ExternalReferenceId = null,
-                    ErrorMessage = "Fullscript API base URL is not configured."
-                };
-            }
-
-            if (string.IsNullOrWhiteSpace(_settings.ApiToken))
-            {
-                return new FullscriptDispatchResultDto
-                {
-                    Success = false,
-                    ExternalReferenceId = null,
-                    ErrorMessage = "Fullscript API token is not configured."
                 };
             }
 
@@ -145,6 +123,69 @@ namespace DBC.Integrations.Fullscript.Services
             }
         }
 
+        private FullscriptDispatchResultDto ValidateConfiguration()
+        {
+            if (!_settings.Enabled)
+            {
+                return new FullscriptDispatchResultDto
+                {
+                    Success = false,
+                    ExternalReferenceId = null,
+                    ErrorMessage = "Fullscript HTTP API client is not enabled."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(_settings.BaseUrl))
+            {
+                return new FullscriptDispatchResultDto
+                {
+                    Success = false,
+                    ExternalReferenceId = null,
+                    ErrorMessage = "Fullscript API base URL is not configured."
+                };
+            }
+
+            Uri baseUri;
+
+            if (!Uri.TryCreate(_settings.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute, out baseUri))
+            {
+                return new FullscriptDispatchResultDto
+                {
+                    Success = false,
+                    ExternalReferenceId = null,
+                    ErrorMessage = "Fullscript API base URL is not a valid absolute URL."
+                };
+            }
+
+            if (baseUri.Scheme != Uri.UriSchemeHttp &&
+                baseUri.Scheme != Uri.UriSchemeHttps)
+            {
+                return new FullscriptDispatchResultDto
+                {
+                    Success = false,
+                    ExternalReferenceId = null,
+                    ErrorMessage = "Fullscript API base URL must use HTTP or HTTPS."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(_settings.ApiToken))
+            {
+                return new FullscriptDispatchResultDto
+                {
+                    Success = false,
+                    ExternalReferenceId = null,
+                    ErrorMessage = "Fullscript API token is not configured."
+                };
+            }
+
+            return new FullscriptDispatchResultDto
+            {
+                Success = true,
+                ExternalReferenceId = null,
+                ErrorMessage = null
+            };
+        }
+
         private void ConfigureHttpClient()
         {
             _httpClient.BaseAddress = new Uri(
@@ -153,10 +194,12 @@ namespace DBC.Integrations.Fullscript.Services
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", _settings.ApiToken);
 
-            _httpClient.DefaultRequestHeaders.Accept.Clear();
-
-            _httpClient.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json"));
+            if (!_httpClient.DefaultRequestHeaders.Accept.Contains(
+                new MediaTypeWithQualityHeaderValue("application/json")))
+            {
+                _httpClient.DefaultRequestHeaders.Accept.Add(
+                    new MediaTypeWithQualityHeaderValue("application/json"));
+            }
         }
 
         private static object BuildTreatmentPlanRequest(
