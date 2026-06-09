@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DBC.CareCommerce.Application.Services;
+using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
 using DBC.CareCommerce.Contracts.Requests;
 using DBC.CareCommerce.Contracts.Services;
@@ -109,6 +110,33 @@ namespace DBC.CareCommerce.WindowsService
                 (int fullscriptTransactionId, FullscriptTransactionReadService readService) =>
                 {
                     return Results.Ok(readService.GetByFullscriptTransactionId(fullscriptTransactionId));
+                });
+
+            app.MapPost(
+                "/fullscript/patients/{patientId:int}/sync-test",
+                (
+                    HttpRequest httpRequest,
+                    int patientId,
+                    FullscriptPatientSyncService patientSyncService,
+                    LocalMiddlewareAuthorizationService authorizationService) =>
+                {
+                    if (!authorizationService.IsAuthorized(
+                        httpRequest.Headers[LocalMiddlewareAuthorizationService.HeaderName].ToString()))
+                    {
+                        return Results.Unauthorized();
+                    }
+
+                    FullscriptPatientCreateResultDto result =
+                        patientSyncService.CreatePatientForLocalPatient(patientId);
+
+                    return Results.Ok(new
+                    {
+                        success = result.Success,
+                        patientId = patientId,
+                        fullscriptPatientId = result.FullscriptPatientId,
+                        errorMessage = result.ErrorMessage,
+                        message = "Diagnostic patient sync completed. No treatment plan was dispatched."
+                    });
                 });
 
             app.MapPost(
