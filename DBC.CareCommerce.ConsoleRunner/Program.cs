@@ -1,4 +1,4 @@
-using DBC.CareCommerce.Application.Services;
+﻿using DBC.CareCommerce.Application.Services;
 using DBC.CareCommerce.Contracts.Enums;
 using DBC.CareCommerce.Contracts.Mapping;
 using DBC.CareCommerce.Contracts.Models;
@@ -15,6 +15,7 @@ using DBC.Integrations.Fullscript.OAuth;
 using DBC.Integrations.Fullscript.Services;
 using System;
 using System.Diagnostics;
+
 
 namespace DBC.CareCommerce.ConsoleRunner
 {
@@ -94,7 +95,6 @@ namespace DBC.CareCommerce.ConsoleRunner
             ICareItemRepository careItemRepository = new SqlCareItemRepository(sqlConnectionFactory);
             IPendingChargeRepository pendingChargeRepository = new SqlPendingChargeRepository(sqlConnectionFactory);
             IFullscriptTransactionRepository fullscriptTransactionRepository = new SqlFullscriptTransactionRepository(sqlConnectionFactory);
-            IFullscriptPatientMapRepository fullscriptPatientMapRepository = new InMemoryFullscriptPatientMapRepository();
 
             var catalogMapper = new CatalogItemMapper();
 
@@ -203,14 +203,10 @@ namespace DBC.CareCommerce.ConsoleRunner
 
             PrintPendingFullscriptTransactions(fullscriptTransactionRepository);
 
-            FullscriptPatientMapService fullscriptPatientMapService =
-                new FullscriptPatientMapService(fullscriptPatientMapRepository);
-
             FullscriptTransactionDispatcherService dispatcherService =
                 new FullscriptTransactionDispatcherService(
                     fullscriptTransactionRepository,
-                    new StubFullscriptApiClient(),
-                    fullscriptPatientMapService);
+                    new StubFullscriptApiClient());
 
             var dispatchedTransactions = dispatcherService.DispatchReadyTransactions();
 
@@ -226,70 +222,109 @@ namespace DBC.CareCommerce.ConsoleRunner
             }
 
             Console.WriteLine();
+
+            PrintPendingFullscriptTransactions(fullscriptTransactionRepository);
         }
 
-        private static CatalogItemDto GetOrInsertDemoCatalogItem(ICatalogItemRepository catalogRepository, CatalogItemDto catalogItem)
+        private static void PrintPendingFullscriptTransactions(IFullscriptTransactionRepository fullscriptTransactionRepository)
         {
-            if (catalogItem.CatalogItemId.HasValue)
+            if (fullscriptTransactionRepository == null)
             {
-                return catalogItem;
+                throw new ArgumentNullException("fullscriptTransactionRepository");
             }
 
-            var existingItems = catalogRepository.Search(catalogItem.ItemName);
+            var pendingTransactions = fullscriptTransactionRepository.GetPendingTransactions();
 
-            foreach (var existingItem in existingItems)
+            Console.WriteLine();
+            Console.WriteLine("Pending Fullscript Transaction Smoke Test");
+            Console.WriteLine("Count: " + pendingTransactions.Count);
+
+            foreach (var transaction in pendingTransactions)
             {
-                if (string.Equals(existingItem.ItemName, catalogItem.ItemName, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(existingItem.FullscriptVariantId ?? string.Empty, catalogItem.FullscriptVariantId ?? string.Empty, StringComparison.OrdinalIgnoreCase))
-                {
-                    return existingItem;
-                }
+                Console.WriteLine(" - FullscriptTransactionId: " + FormatNullable(transaction.FullscriptTransactionId));
+                Console.WriteLine("   CareItemId: " + FormatNullable(transaction.CareItemId));
+                Console.WriteLine("   CatalogItemId: " + FormatNullable(transaction.CatalogItemId));
+                Console.WriteLine("   PatientId: " + transaction.PatientId);
+                Console.WriteLine("   PatientCaseId: " + FormatNullable(transaction.PatientCaseId));
+                Console.WriteLine("   ProviderId: " + FormatNullable(transaction.ProviderId));
+                Console.WriteLine("   ProductId: " + Safe(transaction.FullscriptProductId));
+                Console.WriteLine("   VariantId: " + Safe(transaction.FullscriptVariantId));
+                Console.WriteLine("   TreatmentPlanId: " + Safe(transaction.FullscriptTreatmentPlanId));
+                Console.WriteLine("   OrderId: " + Safe(transaction.FullscriptOrderId));
+                Console.WriteLine("   Status: " + Safe(transaction.Status));
             }
 
-            var newCatalogItemId = catalogRepository.Insert(catalogItem);
-            return catalogRepository.GetById(newCatalogItemId);
+            Console.WriteLine();
         }
 
         private static void PrintCreateCareItemResponse(string title, CreateCareItemResponse response)
         {
+            Console.WriteLine("======================================");
             Console.WriteLine(title);
             Console.WriteLine("Success: " + response.Success);
-            Console.WriteLine("Messages:");
-            foreach (var message in response.Messages)
-            {
-                Console.WriteLine(" - " + message);
-            }
-            Console.WriteLine("Errors:");
-            foreach (var error in response.Errors)
-            {
-                Console.WriteLine(" - " + error);
-            }
-            Console.WriteLine();
-        }
+            Console.WriteLine("CatalogItemId: " + FormatNullable(response.CatalogItemId));
+            Console.WriteLine("CareItemId: " + FormatNullable(response.CareItemId));
+            Console.WriteLine("PendingChargeId: " + FormatNullable(response.PendingChargeId));
+            Console.WriteLine("FullscriptTransactionId: " + FormatNullable(response.FullscriptTransactionId));
 
-        private static void PrintPendingFullscriptTransactions(IFullscriptTransactionRepository repository)
-        {
-            var transactions = repository.GetPendingTransactions();
-
-            if (transactions.Count == 0)
+            if (response.WorkflowDecision != null)
             {
-                Console.WriteLine("No ready Fullscript transactions found.");
-                return;
+                Console.WriteLine("Workflow:");
+                Console.WriteLine(" - Fulfillment: " + response.WorkflowDecision.FulfillmentSource);
+                Console.WriteLine(" - Billing: " + response.WorkflowDecision.BillingAction);
+                Console.WriteLine(" - Inventory: " + response.WorkflowDecision.InventoryAction);
+                Console.WriteLine(" - Create Pending Charge: " + response.WorkflowDecision.ShouldCreatePendingCharge);
+                Console.WriteLine(" - Create Fullscript Transaction: " + response.WorkflowDecision.ShouldCreateFullscriptTransaction);
+                Console.WriteLine(" - Affect Local Inventory: " + response.WorkflowDecision.ShouldAffectLocalInventory);
             }
 
-            Console.WriteLine("Ready Fullscript Transactions:");
-
-            foreach (var transaction in transactions)
+            if (response.PendingCharge != null)
             {
-                Console.WriteLine(" - FullscriptTransactionId: " + FormatNullable(transaction.FullscriptTransactionId));
-                Console.WriteLine("   PatientId: " + transaction.PatientId);
-                Console.WriteLine("   CareItemId: " + FormatNullable(transaction.CareItemId));
-                Console.WriteLine("   CatalogItemId: " + FormatNullable(transaction.CatalogItemId));
-                Console.WriteLine("   Status: " + Safe(transaction.Status));
-                Console.WriteLine("   FullscriptPatientId: " + Safe(transaction.FullscriptPatientId));
-                Console.WriteLine("   FullscriptPractitionerId: " + Safe(transaction.FullscriptPractitionerId));
-                Console.WriteLine("   FullscriptProductId: " + Safe(transaction.FullscriptProductId));
-                Console.WriteLine("   FullscriptVariantId: " + Safe(transaction.FullscriptVariantId));
+                Console.WriteLine("Pending Charge:");
+                Console.WriteLine(" - Description: " + response.PendingCharge.Description);
+                Console.WriteLine(" - Quantity: " + response.PendingCharge.Quantity);
+                Console.WriteLine(" - Unit Amount: " + response.PendingCharge.UnitAmount);
+                Console.WriteLine(" - Total Amount: " + response.PendingCharge.TotalAmount);
+                Console.WriteLine(" - FeeId: " + FormatNullable(response.PendingCharge.FeeId));
+                Console.WriteLine(" - ProductId: " + FormatNullable(response.PendingCharge.ProductId));
+            }
+
+            if (response.FullscriptTransaction != null)
+            {
+                Console.WriteLine("Fullscript Transaction Decision:");
+                Console.WriteLine(" - Status: " + response.FullscriptTransaction.Status);
+                Console.WriteLine(" - ProductId: " + Safe(response.FullscriptTransaction.FullscriptProductId));
+                Console.WriteLine(" - VariantId: " + Safe(response.FullscriptTransaction.FullscriptVariantId));
+                Console.WriteLine(" - PatientId: " + response.FullscriptTransaction.PatientId);
+                Console.WriteLine(" - PatientCaseId: " + FormatNullable(response.FullscriptTransaction.PatientCaseId));
+                Console.WriteLine(" - ProviderId: " + FormatNullable(response.FullscriptTransaction.ProviderId));
+            }
+
+            if (response.Messages.Count > 0)
+            {
+                Console.WriteLine("Messages:");
+                foreach (var message in response.Messages)
+                {
+                    Console.WriteLine(" - " + message);
+                }
+            }
+
+            if (response.Warnings.Count > 0)
+            {
+                Console.WriteLine("Warnings:");
+                foreach (var warning in response.Warnings)
+                {
+                    Console.WriteLine(" - " + warning);
+                }
+            }
+
+            if (response.Errors.Count > 0)
+            {
+                Console.WriteLine("Errors:");
+                foreach (var error in response.Errors)
+                {
+                    Console.WriteLine(" - " + error);
+                }
             }
 
             Console.WriteLine();
@@ -297,63 +332,347 @@ namespace DBC.CareCommerce.ConsoleRunner
 
         private static string FormatNullable(int? value)
         {
-            return value.HasValue ? value.Value.ToString() : "";
+            return value.HasValue ? value.Value.ToString() : "(none)";
         }
 
         private static string Safe(string value)
         {
-            return value ?? "";
+            return string.IsNullOrWhiteSpace(value) ? "(none)" : value;
         }
 
         private static async Task RunFullscriptAuthorizeUrlDemo()
         {
-            Console.WriteLine("Fullscript OAuth/API demo");
+            Console.WriteLine("======================================");
+            Console.WriteLine("Fullscript OAuth Authorize URL Demo");
+            Console.WriteLine();
 
-            var config = FullscriptConfiguration.LoadFromEnvironment();
+            //var fullscriptPatientMapRepository = new InMemoryFullscriptPatientMapRepository();
+            //var fullscriptConnectionRepository = new InMemoryFullscriptConnectionRepository();
 
-            if (!config.IsComplete())
+            var connectionString = Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION");
+
+            if (string.IsNullOrWhiteSpace(connectionString))
             {
-                Console.WriteLine("Missing Fullscript OAuth/API environment variables.");
-                Console.WriteLine("Set these before running the demo:");
-                Console.WriteLine(" - FULLSCRIPT_CLIENT_ID");
-                Console.WriteLine(" - FULLSCRIPT_CLIENT_SECRET");
-                Console.WriteLine(" - FULLSCRIPT_REDIRECT_URI");
-                Console.WriteLine(" - FULLSCRIPT_PRACTITIONER_ID");
+                Console.WriteLine("Missing SQL connection string.");
+                Console.WriteLine("Set environment variable DBC_CARECOMMERCE_SQL_CONNECTION before running the console demo.");
+                return;
+            }
+
+            var sqlConnectionFactory = new SqlConnectionFactory(connectionString);
+
+            IFullscriptConnectionRepository fullscriptConnectionRepository = new SqlFullscriptConnectionRepository(sqlConnectionFactory);
+            IFullscriptPatientMapRepository fullscriptPatientMapRepository = new SqlFullscriptPatientMapRepository(sqlConnectionFactory);
+
+            var tokenEncryptionService = new CompositeTokenEncryptionService(new DpapiTokenEncryptionService(), new DevelopmentTokenEncryptionService());
+
+            Console.Write("Enter Fullscript Client ID: ");
+            var clientId = Console.ReadLine();
+
+            Console.Write("Enter scope, or press ENTER to leave blank: ");
+            var scope = Console.ReadLine();
+
+            var configuration = new FullscriptConfiguration
+            {
+                Environment = FullscriptEnvironment.UsSandbox,
+                ClientId = clientId,
+                RedirectUri = "http://localhost:5000/fullscript/oauth/callback",
+                Scope = string.IsNullOrWhiteSpace(scope) ? null : scope
+            };
+
+            var state = Guid.NewGuid().ToString("N");
+
+            var builder = new FullscriptAuthorizeUrlBuilder();
+            var authorizeUrl = builder.BuildAuthorizeUrl(configuration, state);
+
+            Console.WriteLine();
+            Console.WriteLine("Starting local callback listener...");
+            Console.WriteLine("Listening at: " + configuration.RedirectUri);
+            Console.WriteLine();
+
+            var listener = new FullscriptLocalCallbackListener("http://localhost:5000/fullscript/oauth/callback/");
+
+            var callbackTask = listener.WaitForCallbackAsync(TimeSpan.FromMinutes(2));
+
+            Console.WriteLine("Opening browser...");
+            OpenUrl(authorizeUrl);
+
+            Console.WriteLine("Waiting for Fullscript callback...");
+            Console.WriteLine();
+
+            var callbackResult = await callbackTask;
+
+            if (callbackResult.TimedOut)
+            {
+                Console.WriteLine("No callback received before timeout.");
+                Console.WriteLine("Fullscript did not redirect back to localhost during this run.");
+                Console.WriteLine("This is expected while the app/account is still in pre-authorization.");
+                return;
+            }
+
+            if (callbackResult.HasError())
+            {
+                Console.WriteLine("Fullscript returned an error:");
+                Console.WriteLine(callbackResult.Error);
+                Console.WriteLine(callbackResult.ErrorDescription);
+                return;
+            }
+
+            if (!callbackResult.HasCode())
+            {
+                Console.WriteLine("Callback received, but no authorization code was found.");
+                return;
+            }
+
+            Console.WriteLine("Authorization code received:");
+            Console.WriteLine(callbackResult.Code);
+            Console.WriteLine();
+
+            Console.WriteLine("State received:");
+            Console.WriteLine(callbackResult.State);
+            Console.WriteLine();
+
+            if (string.IsNullOrWhiteSpace(callbackResult.State))
+            {
+                Console.WriteLine("WARNING: Fullscript did not return a state value in the callback.");
+            }
+            else if (!string.Equals(callbackResult.State, state, StringComparison.Ordinal))
+            {
+                Console.WriteLine("WARNING: Returned state does not match original state.");
+            }
+
+            Console.Write("Enter Fullscript Client Secret to exchange token, or press ENTER to skip: ");
+            var clientSecret = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(clientSecret))
+            {
+                Console.WriteLine("Token exchange skipped.");
+                return;
+            }
+
+            configuration.ClientSecret = clientSecret;
+
+            Console.WriteLine("Client secret received. Preparing OAuth application service...");
+
+            var oauthService = new FullscriptOAuthApplicationService(fullscriptConnectionRepository, tokenEncryptionService);
+
+            FullscriptConnectionDto savedConnection;
+
+            try
+            {
                 Console.WriteLine();
-                return;
+                Console.WriteLine("Completing Fullscript authorization through FullscriptOAuthApplicationService...");
+
+                savedConnection = await oauthService.CompleteAuthorizationAsync(
+                    configuration,
+                    callbackResult.Code);
+
+                Console.WriteLine("Fullscript authorization completed and connection saved.");
+                Console.WriteLine(" - FullscriptConnectionId: " + FormatNullable(savedConnection.FullscriptConnectionId));
+                Console.WriteLine(" - Environment: " + Safe(savedConnection.Environment));
+                Console.WriteLine(" - Clinic ID: " + Safe(savedConnection.ClinicId));
+                Console.WriteLine(" - Clinic Name: " + Safe(savedConnection.ClinicName));
+                Console.WriteLine(" - Scope: " + Safe(savedConnection.Scope));
+                Console.WriteLine(" - Token Type: " + Safe(savedConnection.TokenType));
+                Console.WriteLine(" - Token Expires At UTC: " + (savedConnection.TokenExpiresAtDateTime.HasValue ? savedConnection.TokenExpiresAtDateTime.Value.ToString("u") : "(none)"));
+                Console.WriteLine(" - Has Access Token Stored: " + savedConnection.HasAccessToken());
+                Console.WriteLine(" - Has Refresh Token Stored: " + savedConnection.HasRefreshToken());
             }
-
-            var oauthClient = new FullscriptOAuthClient(config);
-
-            var authorizeUrl = oauthClient.BuildAuthorizeUrl("sample-state-123");
-
-            Console.WriteLine("Authorize URL:");
-            Console.WriteLine(authorizeUrl);
-
-            Console.WriteLine();
-            Console.WriteLine("Open this URL in a browser, approve access, then copy the code query-string value.");
-            Console.Write("Authorization code: ");
-            var authorizationCode = Console.ReadLine();
-
-            if (string.IsNullOrWhiteSpace(authorizationCode))
+            catch (Exception ex)
             {
-                Console.WriteLine("No authorization code entered. Skipping token exchange.");
+                Console.WriteLine("Fullscript authorization completion failed.");
+                Console.WriteLine(ex.Message);
                 return;
             }
 
-            var tokenResponse = await oauthClient.ExchangeCodeForTokenAsync(authorizationCode);
+            Console.WriteLine();
+            Console.Write("Refresh access token now using saved refresh token? Y/N: ");
+            var refreshAnswer = Console.ReadLine();
+
+            if (string.Equals(refreshAnswer, "Y", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("Refreshing Fullscript connection through FullscriptOAuthApplicationService...");
+
+                    var refreshedConnection = await oauthService.RefreshConnectionAsync(
+                        configuration,
+                        savedConnection);
+
+                    savedConnection = refreshedConnection;
+
+                    Console.WriteLine("Fullscript connection refreshed.");
+                    Console.WriteLine(" - FullscriptConnectionId: " + FormatNullable(savedConnection.FullscriptConnectionId));
+                    Console.WriteLine(" - Token Expires At UTC: " + (savedConnection.TokenExpiresAtDateTime.HasValue ? savedConnection.TokenExpiresAtDateTime.Value.ToString("u") : "(none)"));
+                    Console.WriteLine(" - Last Refresh UTC: " + (savedConnection.LastRefreshDateTime.HasValue ? savedConnection.LastRefreshDateTime.Value.ToString("u") : "(none)"));
+                    Console.WriteLine(" - Has Access Token Stored: " + savedConnection.HasAccessToken());
+                    Console.WriteLine(" - Has Refresh Token Stored: " + savedConnection.HasRefreshToken());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Token refresh failed.");
+                    Console.WriteLine(ex.Message);
+                }
+            }
+
+            if (!savedConnection.HasAccessToken())
+            {
+                Console.WriteLine("Saved Fullscript connection does not contain an access token. API calls skipped.");
+                return;
+            }
+
+            var apiClient = new FullscriptApiClient(configuration);
+            var accessToken = savedConnection.AccessTokenEncrypted;
+
+            /*
+             * Patient List
+             */
 
             Console.WriteLine();
-            Console.WriteLine("Access Token: " + tokenResponse.AccessToken);
-            Console.WriteLine("Refresh Token: " + tokenResponse.RefreshToken);
-            Console.WriteLine("Expires In: " + tokenResponse.ExpiresIn);
+            Console.WriteLine("Calling Fullscript GET /api/clinic/patients...");
 
-            var apiClient = new FullscriptApiClient(config);
-            var productsJson = await apiClient.GetProductsJsonAsync(tokenResponse.AccessToken);
+            try
+            {
+                var patientsJson = await apiClient.GetPatientsRawJsonAsync(accessToken);
+
+                Console.WriteLine("GET /api/clinic/patients succeeded.");
+                Console.WriteLine("Raw patients JSON:");
+                Console.WriteLine(patientsJson);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("GET /api/clinic/patients failed.");
+                Console.WriteLine(ex.Message);
+            }
+
+            /*
+             * Patient Create / Map
+             */
 
             Console.WriteLine();
-            Console.WriteLine("Products response:");
-            Console.WriteLine(productsJson);
+            Console.Write("Create or map a sandbox Fullscript patient using FullscriptPatientService? Y/N: ");
+            var createPatientAnswer = Console.ReadLine();
+
+            if (string.Equals(createPatientAnswer, "Y", StringComparison.OrdinalIgnoreCase))
+            {
+                var uniqueSuffix = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+
+                var dbcPatientId = 5001;
+                var firstName = "DBC";
+                var lastName = "Sandbox " + uniqueSuffix;
+                var email = "dbc.fullscript.sandbox+" + uniqueSuffix + "@example.com";
+                var environment = savedConnection.Environment;
+                var clinicId = savedConnection.ClinicId;
+
+                Console.WriteLine();
+                Console.WriteLine("Calling FullscriptPatientService.GetOrCreatePatientMapAsync...");
+                Console.WriteLine("Creating fake sandbox patient if no existing map is found:");
+                Console.WriteLine(" - DBC PatientId: " + dbcPatientId);
+                Console.WriteLine(" - First Name: " + firstName);
+                Console.WriteLine(" - Last Name: " + lastName);
+                Console.WriteLine(" - Email: " + email);
+                Console.WriteLine(" - Environment: " + Safe(environment));
+                Console.WriteLine(" - ClinicId: " + Safe(clinicId));
+
+                try
+                {
+                    var patientService = new FullscriptPatientService(
+                        apiClient,
+                        fullscriptPatientMapRepository);
+
+                    var map = await patientService.GetOrCreatePatientMapAsync(
+                        accessToken,
+                        dbcPatientId,
+                        firstName,
+                        lastName,
+                        email,
+                        environment,
+                        clinicId);
+
+                    Console.WriteLine("Fullscript patient map returned.");
+                    Console.WriteLine(" - FullscriptPatientMapId: " + FormatNullable(map.FullscriptPatientMapId));
+                    Console.WriteLine(" - DBC PatientId: " + map.PatientId);
+                    Console.WriteLine(" - Fullscript PatientId: " + Safe(map.FullscriptPatientId));
+                    Console.WriteLine(" - Metadata ID: " + Safe(map.FullscriptMetadataId));
+                    Console.WriteLine(" - Email: " + Safe(map.FullscriptEmail));
+                    Console.WriteLine(" - First Name: " + Safe(map.FullscriptFirstName));
+                    Console.WriteLine(" - Last Name: " + Safe(map.FullscriptLastName));
+
+                    var existingMap = patientService.GetExistingPatientMap(
+                        dbcPatientId,
+                        environment,
+                        clinicId);
+
+                    Console.WriteLine();
+                    Console.WriteLine("Existing map lookup after create:");
+                    Console.WriteLine(" - Found: " + (existingMap != null));
+
+                    if (existingMap != null)
+                    {
+                        Console.WriteLine(" - Fullscript PatientId: " + Safe(existingMap.FullscriptPatientId));
+                        Console.WriteLine(" - Metadata ID: " + Safe(existingMap.FullscriptMetadataId));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("FullscriptPatientService test failed.");
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
+
+        private static void OpenUrl(string url)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            };
+
+            Process.Start(startInfo);
+        }
+
+        private static CatalogItemDto GetOrInsertDemoCatalogItem(ICatalogItemRepository catalogRepository, CatalogItemDto item)
+        {
+            if (catalogRepository == null)
+            {
+                throw new ArgumentNullException("catalogRepository");
+            }
+
+            if (item == null)
+            {
+                throw new ArgumentNullException("item");
+            }
+
+            CatalogItemDto existing = null;
+
+            if (item.ProductId.HasValue)
+            {
+                existing = catalogRepository.GetByProductId(item.ProductId.Value);
+            }
+
+            if (existing == null && item.SupplementId.HasValue)
+            {
+                existing = catalogRepository.GetBySupplementId(item.SupplementId.Value);
+            }
+
+            if (existing == null && !string.IsNullOrWhiteSpace(item.FullscriptVariantId))
+            {
+                SqlCatalogItemRepository sqlCatalogRepository = catalogRepository as SqlCatalogItemRepository;
+
+                if (sqlCatalogRepository != null)
+                {
+                    existing = sqlCatalogRepository.GetByFullscriptVariantId(item.FullscriptVariantId);
+                }
+            }
+
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            int newId = catalogRepository.Insert(item);
+            return catalogRepository.GetById(newId);
         }
     }
 }
