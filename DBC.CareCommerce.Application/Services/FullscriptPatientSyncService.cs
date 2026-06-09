@@ -8,6 +8,8 @@ namespace DBC.CareCommerce.Application.Services
 {
     public sealed class FullscriptPatientSyncService
     {
+        private const string DefaultEnvironment = "UsSandbox";
+
         private readonly IPatientProfileRepository _patientProfileRepository;
         private readonly IFullscriptApiClient _fullscriptApiClient;
         private readonly IFullscriptPatientMapRepository _fullscriptPatientMapRepository;
@@ -59,6 +61,22 @@ namespace DBC.CareCommerce.Application.Services
             if (!validationResult.Success)
             {
                 return validationResult;
+            }
+
+            FullscriptPatientMapDto existingMap =
+                _fullscriptPatientMapRepository.GetByPatientId(
+                    patientProfile.PatientId,
+                    DefaultEnvironment,
+                    null);
+
+            if (existingMap != null && existingMap.HasFullscriptPatientId())
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = true,
+                    FullscriptPatientId = existingMap.FullscriptPatientId,
+                    ErrorMessage = null
+                };
             }
 
             FullscriptPatientCreateRequestDto request =
@@ -175,7 +193,7 @@ namespace DBC.CareCommerce.Application.Services
                 FullscriptEmail = patientProfile.Email,
                 FullscriptFirstName = patientProfile.FirstName,
                 FullscriptLastName = patientProfile.LastName,
-                Environment = "UsSandbox",
+                Environment = DefaultEnvironment,
                 ClinicId = null,
                 LastSyncedDateTime = DateTime.UtcNow,
                 Active = true,
