@@ -67,9 +67,9 @@ namespace DBC.CareCommerce.WindowsService.Services
                 errors = new List<string>(),
                 warnings = new List<string>(),
                 messages = new List<string>
-        {
-            "Ready Fullscript transaction read completed."
-        }
+                {
+                    "Ready Fullscript transaction read completed."
+                }
             };
         }
     }
