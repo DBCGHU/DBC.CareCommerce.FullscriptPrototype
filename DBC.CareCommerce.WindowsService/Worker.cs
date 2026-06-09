@@ -6,23 +6,42 @@ using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
 using DBC.CareCommerce.Data.DataAccess;
 using DBC.CareCommerce.Data.Repositories;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DBC.CareCommerce.WindowsService
 {
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
+        private readonly CareCommerceServiceSettings _settings;
+        private readonly IConfiguration _configuration;
 
-        public Worker(ILogger<Worker> logger)
+        public Worker(
+            ILogger<Worker> logger,
+            IOptions<CareCommerceServiceSettings> settings,
+            IConfiguration configuration)
         {
             if (logger == null)
             {
                 throw new ArgumentNullException("logger");
             }
 
+            if (settings == null)
+            {
+                throw new ArgumentNullException("settings");
+            }
+
+            if (configuration == null)
+            {
+                throw new ArgumentNullException("configuration");
+            }
+
             _logger = logger;
+            _settings = settings.Value ?? new CareCommerceServiceSettings();
+            _configuration = configuration;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -40,7 +59,9 @@ namespace DBC.CareCommerce.WindowsService
                     _logger.LogError(ex, "Error while dispatching ready Fullscript transactions.");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
+                int intervalSeconds = GetDispatchIntervalSeconds();
+
+                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken);
             }
 
             _logger.LogInformation("DBC Care Commerce Windows Service stopped.");
@@ -48,11 +69,11 @@ namespace DBC.CareCommerce.WindowsService
 
         private void DispatchReadyFullscriptTransactions()
         {
-            string connectionString = Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION");
+            string connectionString = GetSqlConnectionString();
 
             if (string.IsNullOrWhiteSpace(connectionString))
             {
-                _logger.LogWarning("Environment variable DBC_CARECOMMERCE_SQL_CONNECTION is not set. Fullscript transaction dispatch skipped.");
+                _logger.LogWarning("SQL connection string is not configured. Fullscript transaction dispatch skipped.");
                 return;
             }
 
@@ -85,6 +106,42 @@ namespace DBC.CareCommerce.WindowsService
                     transaction.FullscriptTreatmentPlanId,
                     transaction.ErrorMessage);
             }
+        }
+
+        private string GetSqlConnectionString()
+        {
+            string environmentValue =
+                Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION");
+
+            if (!string.IsNullOrWhiteSpace(environmentValue))
+            {
+                return environmentValue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_settings.SqlConnectionString))
+            {
+                return _settings.SqlConnectionString;
+            }
+
+            string configurationValue =
+                _configuration["CareCommerceService:SqlConnectionString"];
+
+            if (!string.IsNullOrWhiteSpace(configurationValue))
+            {
+                return configurationValue;
+            }
+
+            return null;
+        }
+
+        private int GetDispatchIntervalSeconds()
+        {
+            if (_settings.FullscriptDispatchIntervalSeconds > 0)
+            {
+                return _settings.FullscriptDispatchIntervalSeconds;
+            }
+
+            return 60;
         }
     }
 }

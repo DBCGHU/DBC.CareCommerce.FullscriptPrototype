@@ -1,4 +1,3 @@
-using DBC.CareCommerce.WindowsService;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -17,6 +16,9 @@ namespace DBC.CareCommerce.WindowsService
                 .UseWindowsService()
                 .ConfigureServices((hostContext, services) =>
                 {
+                    services.Configure<CareCommerceServiceSettings>(
+                        hostContext.Configuration.GetSection("CareCommerceService"));
+
                     services.AddHostedService<Worker>();
                 });
         }
