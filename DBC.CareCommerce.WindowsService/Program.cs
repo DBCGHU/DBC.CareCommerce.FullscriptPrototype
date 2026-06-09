@@ -53,9 +53,17 @@ namespace DBC.CareCommerce.WindowsService
             app.MapPost(
                 "/care-commerce/recommendations/validate",
                 (
+                    HttpRequest httpRequest,
                     SubmitCareRecommendationRequest request,
-                    SubmitCareRecommendationRequestValidator validator) =>
+                    SubmitCareRecommendationRequestValidator validator,
+                    LocalMiddlewareAuthorizationService authorizationService) =>
                 {
+                    if (!authorizationService.IsAuthorized(
+                        httpRequest.Headers[LocalMiddlewareAuthorizationService.HeaderName].ToString()))
+                    {
+                        return Results.Unauthorized();
+                    }
+
                     List<string> errors = validator.Validate(request);
 
                     return Results.Ok(new
@@ -65,7 +73,7 @@ namespace DBC.CareCommerce.WindowsService
                         warnings = new List<string>(),
                         messages = new List<string>
                         {
-                            "Validation completed. No records were created."
+                "Validation completed. No records were created."
                         }
                     });
                 });
@@ -79,18 +87,36 @@ namespace DBC.CareCommerce.WindowsService
 
             app.MapPost(
                 "/fullscript/dispatch",
-                (FullscriptTransactionDispatcherService dispatcherService) =>
+                (
+                    HttpRequest httpRequest,
+                    FullscriptTransactionDispatcherService dispatcherService,
+                    LocalMiddlewareAuthorizationService authorizationService) =>
                 {
+                    if (!authorizationService.IsAuthorized(
+                        httpRequest.Headers[LocalMiddlewareAuthorizationService.HeaderName].ToString()))
+                    {
+                        return Results.Unauthorized();
+                    }
+
                     return Results.Ok(dispatcherService.DispatchReadyTransactions());
                 });
 
             app.MapPost(
                 "/care-commerce/recommendations",
-                (SubmitCareRecommendationRequest request, CareCommerceMiddlewareCommandService commandService) =>
+                (
+                    HttpRequest httpRequest,
+                    SubmitCareRecommendationRequest request,
+                    CareCommerceMiddlewareCommandService commandService,
+                    LocalMiddlewareAuthorizationService authorizationService) =>
                 {
+                    if (!authorizationService.IsAuthorized(
+                        httpRequest.Headers[LocalMiddlewareAuthorizationService.HeaderName].ToString()))
+                    {
+                        return Results.Unauthorized();
+                    }
+
                     return Results.Ok(commandService.SubmitCareRecommendation(request));
                 });
-
             app.Run();
         }
 
@@ -138,6 +164,7 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
             builder.Services.AddScoped<CareCommerceMiddlewareCommandService>();
             builder.Services.AddScoped<CareCommerceRecommendationReadService>();
+            builder.Services.AddScoped<LocalMiddlewareAuthorizationService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
             builder.Services.AddScoped<FullscriptTransactionDispatcherService>();
 
