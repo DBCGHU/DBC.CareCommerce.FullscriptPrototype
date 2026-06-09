@@ -52,14 +52,32 @@ namespace DBC.Integrations.Fullscript.Services
 
         public object ExchangeCodeForToken(string code)
         {
-            string validationError = ValidateTokenExchangeConfiguration(code);
+            FullscriptOAuthTokenResult tokenResult = ExchangeCodeForTokenResult(code);
 
-            if (!string.IsNullOrWhiteSpace(validationError))
+            if (!tokenResult.Success)
             {
                 return new
                 {
                     success = false,
-                    errorMessage = validationError
+                    statusCode = tokenResult.StatusCode,
+                    errorMessage = tokenResult.ErrorMessage
+                };
+            }
+
+            return BuildSafeTokenDiagnostic(tokenResult);
+        }
+
+        public FullscriptOAuthTokenResult ExchangeCodeForTokenResult(string code)
+        {
+            string validationError = ValidateTokenExchangeConfiguration(code);
+
+            if (!string.IsNullOrWhiteSpace(validationError))
+            {
+                return new FullscriptOAuthTokenResult
+                {
+                    Success = false,
+                    ErrorMessage = validationError,
+                    ReceivedAtUtc = DateTime.UtcNow
                 };
             }
 
@@ -83,25 +101,26 @@ namespace DBC.Integrations.Fullscript.Services
 
                         if (!response.IsSuccessStatusCode)
                         {
-                            return new
+                            return new FullscriptOAuthTokenResult
                             {
-                                success = false,
-                                statusCode = (int)response.StatusCode,
-                                errorMessage = "Fullscript OAuth token exchange failed.",
-                                responseBody = responseBody
+                                Success = false,
+                                StatusCode = (int)response.StatusCode,
+                                ErrorMessage = "Fullscript OAuth token exchange failed.",
+                                ReceivedAtUtc = DateTime.UtcNow
                             };
                         }
 
-                        return BuildSafeTokenDiagnostic(responseBody);
+                        return ParseTokenResult(responseBody);
                     }
                 }
             }
             catch (Exception ex)
             {
-                return new
+                return new FullscriptOAuthTokenResult
                 {
-                    success = false,
-                    errorMessage = "Fullscript OAuth token exchange failed: " + ex.Message
+                    Success = false,
+                    ErrorMessage = "Fullscript OAuth token exchange failed: " + ex.Message,
+                    ReceivedAtUtc = DateTime.UtcNow
                 };
             }
         }
@@ -136,44 +155,60 @@ namespace DBC.Integrations.Fullscript.Services
             return null;
         }
 
-        private static object BuildSafeTokenDiagnostic(string responseBody)
+        private static FullscriptOAuthTokenResult ParseTokenResult(string responseBody)
         {
             using (JsonDocument document = JsonDocument.Parse(responseBody))
             {
                 JsonElement root = document.RootElement;
                 JsonElement tokenContainer = FindTokenContainer(root);
 
-                string accessToken = GetStringProperty(tokenContainer, "access_token");
-                string refreshToken = GetStringProperty(tokenContainer, "refresh_token");
-
-                if (string.IsNullOrWhiteSpace(accessToken))
+                FullscriptOAuthTokenResult result = new FullscriptOAuthTokenResult
                 {
-                    accessToken = GetStringProperty(tokenContainer, "accessToken");
-                }
-
-                if (string.IsNullOrWhiteSpace(refreshToken))
-                {
-                    refreshToken = GetStringProperty(tokenContainer, "refreshToken");
-                }
-
-                return new
-                {
-                    success = true,
-                    rootFields = GetPropertyNames(root),
-                    tokenContainerFields = GetPropertyNames(tokenContainer),
-                    tokenType = FirstNonEmpty(
+                    Success = true,
+                    AccessToken = FirstNonEmpty(
+                        GetStringProperty(tokenContainer, "access_token"),
+                        GetStringProperty(tokenContainer, "accessToken")),
+                    RefreshToken = FirstNonEmpty(
+                        GetStringProperty(tokenContainer, "refresh_token"),
+                        GetStringProperty(tokenContainer, "refreshToken")),
+                    TokenType = FirstNonEmpty(
                         GetStringProperty(tokenContainer, "token_type"),
                         GetStringProperty(tokenContainer, "tokenType")),
-                    expiresIn = FirstNonNull(
+                    ExpiresIn = FirstNonNull(
                         GetIntProperty(tokenContainer, "expires_in"),
                         GetIntProperty(tokenContainer, "expiresIn")),
-                    scope = GetStringProperty(tokenContainer, "scope"),
-                    accessTokenPreview = PreviewSecret(accessToken),
-                    accessTokenPresent = !string.IsNullOrWhiteSpace(accessToken),
-                    refreshTokenPresent = !string.IsNullOrWhiteSpace(refreshToken),
-                    message = "OAuth token exchange completed. Full tokens were not returned by this diagnostic endpoint."
+                    Scope = GetStringProperty(tokenContainer, "scope"),
+                    CreatedAt = GetLongProperty(tokenContainer, "created_at"),
+                    ResourceOwner = GetStringProperty(tokenContainer, "resource_owner"),
+                    ReceivedAtUtc = DateTime.UtcNow
                 };
+
+                if (!result.HasAccessToken())
+                {
+                    result.Success = false;
+                    result.ErrorMessage = "Fullscript OAuth token exchange response did not contain an access token.";
+                }
+
+                return result;
             }
+        }
+
+        private static object BuildSafeTokenDiagnostic(FullscriptOAuthTokenResult tokenResult)
+        {
+            return new
+            {
+                success = tokenResult.Success,
+                tokenType = tokenResult.TokenType,
+                expiresIn = tokenResult.ExpiresIn,
+                scope = tokenResult.Scope,
+                accessTokenPreview = PreviewSecret(tokenResult.AccessToken),
+                accessTokenPresent = tokenResult.HasAccessToken(),
+                refreshTokenPresent = tokenResult.HasRefreshToken(),
+                createdAt = tokenResult.CreatedAt,
+                resourceOwnerPresent = !string.IsNullOrWhiteSpace(tokenResult.ResourceOwner),
+                receivedAtUtc = tokenResult.ReceivedAtUtc,
+                message = "OAuth token exchange completed. Full tokens were not returned by this diagnostic endpoint."
+            };
         }
 
         private static JsonElement FindTokenContainer(JsonElement root)
@@ -210,23 +245,6 @@ namespace DBC.Integrations.Fullscript.Services
                 element.TryGetProperty("refreshToken", out _);
         }
 
-        private static string[] GetPropertyNames(JsonElement element)
-        {
-            if (element.ValueKind != JsonValueKind.Object)
-            {
-                return new string[0];
-            }
-
-            List<string> propertyNames = new List<string>();
-
-            foreach (JsonProperty property in element.EnumerateObject())
-            {
-                propertyNames.Add(property.Name);
-            }
-
-            return propertyNames.ToArray();
-        }
-
         private static string GetStringProperty(JsonElement root, string propertyName)
         {
             if (root.ValueKind == JsonValueKind.Object &&
@@ -243,6 +261,18 @@ namespace DBC.Integrations.Fullscript.Services
             if (root.ValueKind == JsonValueKind.Object &&
                 root.TryGetProperty(propertyName, out JsonElement property) &&
                 property.TryGetInt32(out int value))
+            {
+                return value;
+            }
+
+            return null;
+        }
+
+        private static long? GetLongProperty(JsonElement root, string propertyName)
+        {
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty(propertyName, out JsonElement property) &&
+                property.TryGetInt64(out long value))
             {
                 return value;
             }
