@@ -1,4 +1,4 @@
-﻿using DBC.CareCommerce.Contracts.Models;
+using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Services;
 
 namespace DBC.Integrations.Fullscript.Services
@@ -23,6 +23,28 @@ namespace DBC.Integrations.Fullscript.Services
             {
                 Success = true,
                 ExternalReferenceId = "stub-treatment-plan-" + transaction.FullscriptTransactionId.Value,
+                ErrorMessage = null
+            };
+        }
+
+        public FullscriptPatientCreateResultDto CreatePatient(
+            FullscriptPatientCreateRequestDto request)
+        {
+            if (request == null ||
+                request.PatientId <= 0)
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = "Patient ID is required before creating a Fullscript patient."
+                };
+            }
+
+            return new FullscriptPatientCreateResultDto
+            {
+                Success = true,
+                FullscriptPatientId = "stub-patient-" + request.PatientId,
                 ErrorMessage = null
             };
         }
