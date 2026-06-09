@@ -123,6 +123,17 @@ namespace DBC.Integrations.Fullscript.Services
             }
         }
 
+        public FullscriptPatientCreateResultDto CreatePatient(
+            FullscriptPatientCreateRequestDto request)
+        {
+            return new FullscriptPatientCreateResultDto
+            {
+                Success = false,
+                FullscriptPatientId = null,
+                ErrorMessage = "Fullscript HTTP patient creation is not implemented yet."
+            };
+        }
+
         private FullscriptDispatchResultDto ValidateConfiguration()
         {
             if (!_settings.Enabled)
