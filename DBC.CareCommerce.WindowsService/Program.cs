@@ -94,6 +94,13 @@ namespace DBC.CareCommerce.WindowsService
                     return Results.Ok(readService.GetByCareItemId(careItemId));
                 });
 
+            app.MapGet(
+                "/fullscript/transactions/{fullscriptTransactionId:int}",
+                (int fullscriptTransactionId, FullscriptTransactionReadService readService) =>
+                {
+                    return Results.Ok(readService.GetByFullscriptTransactionId(fullscriptTransactionId));
+                });
+
             app.MapPost(
                 "/fullscript/dispatch",
                 (
@@ -171,8 +178,10 @@ namespace DBC.CareCommerce.WindowsService
 
             builder.Services.AddScoped<ICareItemApplicationService, CareItemApplicationService>();
             builder.Services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
+
             builder.Services.AddScoped<CareCommerceMiddlewareCommandService>();
             builder.Services.AddScoped<CareCommerceRecommendationReadService>();
+            builder.Services.AddScoped<FullscriptTransactionReadService>();
             builder.Services.AddScoped<LocalMiddlewareAuthorizationService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
             builder.Services.AddScoped<FullscriptTransactionDispatcherService>();
