@@ -203,7 +203,10 @@ namespace DBC.CareCommerce.ConsoleRunner
 
             PrintPendingFullscriptTransactions(fullscriptTransactionRepository);
 
-            var dispatcherService = new FullscriptTransactionDispatcherService(fullscriptTransactionRepository);
+            FullscriptTransactionDispatcherService dispatcherService =
+                new FullscriptTransactionDispatcherService(
+                    fullscriptTransactionRepository,
+                    new StubFullscriptApiClient());
 
             var dispatchedTransactions = dispatcherService.DispatchReadyTransactions();
 

@@ -8,6 +8,7 @@ using DBC.CareCommerce.Contracts.Services.Contracts;
 using DBC.CareCommerce.Data.DataAccess;
 using DBC.CareCommerce.Data.Repositories;
 using DBC.CareCommerce.WindowsService.Services;
+using DBC.Integrations.Fullscript.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -191,6 +192,7 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<FullscriptTransactionReadService>();
             builder.Services.AddScoped<LocalMiddlewareAuthorizationService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
+            builder.Services.AddScoped<IFullscriptApiClient, StubFullscriptApiClient>();
             builder.Services.AddScoped<FullscriptTransactionDispatcherService>();
 
             builder.Services.AddHostedService<Worker>();

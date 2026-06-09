@@ -2,22 +2,31 @@
 using System.Collections.Generic;
 using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
+using DBC.CareCommerce.Contracts.Services;
 
 namespace DBC.CareCommerce.Application.Services
 {
     public sealed class FullscriptTransactionDispatcherService
     {
         private readonly IFullscriptTransactionRepository _fullscriptTransactionRepository;
+        private readonly IFullscriptApiClient _fullscriptApiClient;
 
         public FullscriptTransactionDispatcherService(
-            IFullscriptTransactionRepository fullscriptTransactionRepository)
+            IFullscriptTransactionRepository fullscriptTransactionRepository,
+            IFullscriptApiClient fullscriptApiClient)
         {
             if (fullscriptTransactionRepository == null)
             {
                 throw new ArgumentNullException("fullscriptTransactionRepository");
             }
 
+            if (fullscriptApiClient == null)
+            {
+                throw new ArgumentNullException("fullscriptApiClient");
+            }
+
             _fullscriptTransactionRepository = fullscriptTransactionRepository;
+            _fullscriptApiClient = fullscriptApiClient;
         }
 
         public IList<FullscriptTransactionDto> DispatchReadyTransactions()
@@ -59,15 +68,46 @@ namespace DBC.CareCommerce.Application.Services
                 return;
             }
 
-            string fakeTreatmentPlanId =
-                "stub-treatment-plan-" + transaction.FullscriptTransactionId.Value;
+            FullscriptDispatchResultDto dispatchResult =
+                _fullscriptApiClient.DispatchTreatmentPlan(transaction);
+
+            if (dispatchResult == null)
+            {
+                _fullscriptTransactionRepository.MarkFailed(
+                    transaction.FullscriptTransactionId.Value,
+                    "Fullscript dispatch result was not returned.");
+
+                transaction.Status = "Failed";
+                transaction.ErrorMessage = "Fullscript dispatch result was not returned.";
+
+                return;
+            }
+
+            if (!dispatchResult.Success)
+            {
+                string errorMessage = dispatchResult.ErrorMessage;
+
+                if (string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    errorMessage = "Fullscript dispatch failed.";
+                }
+
+                _fullscriptTransactionRepository.MarkFailed(
+                    transaction.FullscriptTransactionId.Value,
+                    errorMessage);
+
+                transaction.Status = "Failed";
+                transaction.ErrorMessage = errorMessage;
+
+                return;
+            }
 
             _fullscriptTransactionRepository.MarkSent(
                 transaction.FullscriptTransactionId.Value,
-                fakeTreatmentPlanId);
+                dispatchResult.ExternalReferenceId);
 
             transaction.Status = "Sent";
-            transaction.FullscriptTreatmentPlanId = fakeTreatmentPlanId;
+            transaction.FullscriptTreatmentPlanId = dispatchResult.ExternalReferenceId;
         }
 
         private static string ValidateReadyTransaction(FullscriptTransactionDto transaction)
