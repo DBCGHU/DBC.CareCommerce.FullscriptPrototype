@@ -11,11 +11,13 @@ namespace DBC.CareCommerce.Application.Services
         private readonly IFullscriptTransactionRepository _fullscriptTransactionRepository;
         private readonly IFullscriptApiClient _fullscriptApiClient;
         private readonly FullscriptPatientMapService _fullscriptPatientMapService;
+        private readonly FullscriptPatientSyncService _fullscriptPatientSyncService;
 
         public FullscriptTransactionDispatcherService(
             IFullscriptTransactionRepository fullscriptTransactionRepository,
             IFullscriptApiClient fullscriptApiClient,
-            FullscriptPatientMapService fullscriptPatientMapService)
+            FullscriptPatientMapService fullscriptPatientMapService,
+            FullscriptPatientSyncService fullscriptPatientSyncService)
         {
             if (fullscriptTransactionRepository == null)
             {
@@ -32,9 +34,15 @@ namespace DBC.CareCommerce.Application.Services
                 throw new ArgumentNullException("fullscriptPatientMapService");
             }
 
+            if (fullscriptPatientSyncService == null)
+            {
+                throw new ArgumentNullException("fullscriptPatientSyncService");
+            }
+
             _fullscriptTransactionRepository = fullscriptTransactionRepository;
             _fullscriptApiClient = fullscriptApiClient;
             _fullscriptPatientMapService = fullscriptPatientMapService;
+            _fullscriptPatientSyncService = fullscriptPatientSyncService;
         }
 
         public IList<FullscriptTransactionDto> DispatchReadyTransactions()
@@ -132,6 +140,22 @@ namespace DBC.CareCommerce.Application.Services
                     transaction.PatientId,
                     "UsSandbox",
                     null);
+
+            if (!string.IsNullOrWhiteSpace(transaction.FullscriptPatientId))
+            {
+                return;
+            }
+
+            FullscriptPatientCreateResultDto createResult =
+                _fullscriptPatientSyncService.CreatePatientForLocalPatient(
+                    transaction.PatientId);
+
+            if (createResult != null &&
+                createResult.Success &&
+                !string.IsNullOrWhiteSpace(createResult.FullscriptPatientId))
+            {
+                transaction.FullscriptPatientId = createResult.FullscriptPatientId;
+            }
         }
 
         private static string ValidateReadyTransaction(FullscriptTransactionDto transaction)
