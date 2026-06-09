@@ -33,18 +33,18 @@ namespace DBC.CareCommerce.WindowsService
                                 .GetSection("CareCommerceService")
                                 .Get<CareCommerceServiceSettings>() ?? new CareCommerceServiceSettings();
 
-                        string connectionString =
-                            Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION");
+                        string connectionString = 
+                            Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION") ?? string.Empty;
 
                         if (string.IsNullOrWhiteSpace(connectionString))
                         {
-                            connectionString = settings.SqlConnectionString;
+                            connectionString = settings.SqlConnectionString ?? string.Empty;
                         }
 
                         if (string.IsNullOrWhiteSpace(connectionString))
                         {
                             connectionString =
-                                hostContext.Configuration["CareCommerceService:SqlConnectionString"];
+                                hostContext.Configuration["CareCommerceService:SqlConnectionString"] ?? string.Empty;
                         }
 
                         return new SqlConnectionFactory(connectionString);

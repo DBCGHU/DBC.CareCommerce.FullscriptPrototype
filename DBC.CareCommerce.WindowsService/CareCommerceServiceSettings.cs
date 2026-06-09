@@ -8,6 +8,7 @@
 
         public CareCommerceServiceSettings()
         {
+            SqlConnectionString = string.Empty;
             FullscriptDispatchIntervalSeconds = 60;
         }
     }
