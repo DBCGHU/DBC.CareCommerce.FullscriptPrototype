@@ -2,6 +2,7 @@ using System;
 using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
 using DBC.CareCommerce.Contracts.Services;
+using DBC.CareCommerce.Data.Repositories;
 
 namespace DBC.CareCommerce.Application.Services
 {
@@ -9,10 +10,12 @@ namespace DBC.CareCommerce.Application.Services
     {
         private readonly IPatientProfileRepository _patientProfileRepository;
         private readonly IFullscriptApiClient _fullscriptApiClient;
+        private readonly IFullscriptPatientMapRepository _fullscriptPatientMapRepository;
 
         public FullscriptPatientSyncService(
             IPatientProfileRepository patientProfileRepository,
-            IFullscriptApiClient fullscriptApiClient)
+            IFullscriptApiClient fullscriptApiClient,
+            IFullscriptPatientMapRepository fullscriptPatientMapRepository)
         {
             if (patientProfileRepository == null)
             {
@@ -24,8 +27,14 @@ namespace DBC.CareCommerce.Application.Services
                 throw new ArgumentNullException("fullscriptApiClient");
             }
 
+            if (fullscriptPatientMapRepository == null)
+            {
+                throw new ArgumentNullException("fullscriptPatientMapRepository");
+            }
+
             _patientProfileRepository = patientProfileRepository;
             _fullscriptApiClient = fullscriptApiClient;
+            _fullscriptPatientMapRepository = fullscriptPatientMapRepository;
         }
 
         public FullscriptPatientCreateResultDto CreatePatientForLocalPatient(
@@ -55,7 +64,27 @@ namespace DBC.CareCommerce.Application.Services
             FullscriptPatientCreateRequestDto request =
                 BuildCreateRequest(patientProfile);
 
-            return _fullscriptApiClient.CreatePatient(request);
+            FullscriptPatientCreateResultDto createResult =
+                _fullscriptApiClient.CreatePatient(request);
+
+            if (!createResult.Success)
+            {
+                return createResult;
+            }
+
+            if (string.IsNullOrWhiteSpace(createResult.FullscriptPatientId))
+            {
+                return new FullscriptPatientCreateResultDto
+                {
+                    Success = false,
+                    FullscriptPatientId = null,
+                    ErrorMessage = "Fullscript patient creation succeeded but did not return a patient ID."
+                };
+            }
+
+            SavePatientMap(patientProfile, createResult.FullscriptPatientId, request.MetadataId);
+
+            return createResult;
         }
 
         private static FullscriptPatientCreateResultDto ValidatePatientProfile(
@@ -131,6 +160,29 @@ namespace DBC.CareCommerce.Application.Services
                 DateOfBirth = patientProfile.DateOfBirth,
                 MetadataId = "dbc-patient-" + patientProfile.PatientId
             };
+        }
+
+        private void SavePatientMap(
+            FullscriptPatientProfileDto patientProfile,
+            string fullscriptPatientId,
+            string metadataId)
+        {
+            FullscriptPatientMapDto map = new FullscriptPatientMapDto
+            {
+                PatientId = patientProfile.PatientId,
+                FullscriptPatientId = fullscriptPatientId,
+                FullscriptMetadataId = metadataId,
+                FullscriptEmail = patientProfile.Email,
+                FullscriptFirstName = patientProfile.FirstName,
+                FullscriptLastName = patientProfile.LastName,
+                Environment = "UsSandbox",
+                ClinicId = null,
+                LastSyncedDateTime = DateTime.UtcNow,
+                Active = true,
+                UpdatedDateTime = DateTime.UtcNow
+            };
+
+            _fullscriptPatientMapRepository.Insert(map);
         }
     }
 }
