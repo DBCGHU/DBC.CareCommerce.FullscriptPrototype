@@ -7,5 +7,6 @@
   <Project Path="DBC.CareCommerce.ConsoleRunner/DBC.CareCommerce.ConsoleRunner.csproj" Id="b41363a4-21f8-43ab-977f-879a2038bb63" />
   <Project Path="DBC.CareCommerce.Contracts/DBC.CareCommerce.Contracts.csproj" />
   <Project Path="DBC.CareCommerce.Data/DBC.CareCommerce.Data.csproj" Id="523cd831-e3e8-4e26-adbc-bccf7515db85" />
+  <Project Path="DBC.CareCommerce.WindowsService/DBC.CareCommerce.WindowsService/DBC.CareCommerce.WindowsService.csproj" Id="d3ceb09d-4bec-4369-b158-f6614f2a6e27" />
   <Project Path="DBC.Integrations.Fullscript/DBC.Integrations.Fullscript.csproj" Id="13d55485-d1f5-45a0-9b73-86b35cbca646" />
 </Solution>
