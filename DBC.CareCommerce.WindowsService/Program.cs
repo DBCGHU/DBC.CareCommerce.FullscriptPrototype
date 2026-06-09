@@ -63,6 +63,45 @@ namespace DBC.CareCommerce.WindowsService
                     });
                 });
 
+            app.MapGet(
+                "/fullscript/oauth/start",
+                (FullscriptOAuthDiagnosticService oauthDiagnosticService) =>
+                {
+                    string authorizeUrl = oauthDiagnosticService.BuildAuthorizeUrl();
+
+                    if (string.IsNullOrWhiteSpace(authorizeUrl))
+                    {
+                        return Results.BadRequest(new
+                        {
+                            success = false,
+                            errorMessage = "Fullscript OAuth authorize URL is not configured."
+                        });
+                    }
+
+                    return Results.Redirect(authorizeUrl);
+                });
+
+            app.MapGet(
+                "/fullscript/oauth/callback",
+                (HttpRequest httpRequest, FullscriptOAuthDiagnosticService oauthDiagnosticService) =>
+                {
+                    string error = httpRequest.Query["error"].ToString();
+
+                    if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        return Results.BadRequest(new
+                        {
+                            success = false,
+                            error = error,
+                            errorDescription = httpRequest.Query["error_description"].ToString()
+                        });
+                    }
+
+                    string code = httpRequest.Query["code"].ToString();
+
+                    return Results.Ok(oauthDiagnosticService.ExchangeCodeForToken(code));
+                });
+
             app.MapPost(
                 "/care-commerce/recommendations/validate",
                 (
@@ -230,6 +269,7 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<LocalMiddlewareAuthorizationService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
             builder.Services.AddHttpClient<FullscriptHttpApiClient>();
+            builder.Services.AddHttpClient<FullscriptOAuthDiagnosticService>();
             builder.Services.AddScoped<IFullscriptApiClient>(provider =>
             {
                 FullscriptApiSettings settings =
