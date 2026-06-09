@@ -1,11 +1,14 @@
 using System;
 using DBC.CareCommerce.Application.Services;
 using DBC.CareCommerce.Contracts.Repositories;
+using DBC.CareCommerce.Contracts.Requests;
 using DBC.CareCommerce.Contracts.Services;
 using DBC.CareCommerce.Contracts.Services.Contracts;
 using DBC.CareCommerce.Data.DataAccess;
 using DBC.CareCommerce.Data.Repositories;
 using DBC.CareCommerce.WindowsService.Services;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -15,54 +18,66 @@ namespace DBC.CareCommerce.WindowsService
     {
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
+            WebApplication app = CreateApplication(args);
+
+            app.MapPost(
+                "/care-commerce/recommendations",
+                (SubmitCareRecommendationRequest request, CareCommerceMiddlewareCommandService commandService) =>
+                {
+                    return Results.Ok(commandService.SubmitCareRecommendation(request));
+                });
+
+            app.Run();
         }
 
-        public static IHostBuilder CreateHostBuilder(string[] args)
+        public static WebApplication CreateApplication(string[] args)
         {
-            return Host.CreateDefaultBuilder(args)
-                .UseWindowsService()
-                .ConfigureServices((hostContext, services) =>
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+            builder.Host.UseWindowsService();
+
+            builder.WebHost.UseUrls("http://127.0.0.1:5147");
+
+            builder.Services.Configure<CareCommerceServiceSettings>(
+                builder.Configuration.GetSection("CareCommerceService"));
+
+            builder.Services.AddSingleton(provider =>
+            {
+                CareCommerceServiceSettings settings =
+                    builder.Configuration
+                        .GetSection("CareCommerceService")
+                        .Get<CareCommerceServiceSettings>() ?? new CareCommerceServiceSettings();
+
+                string connectionString =
+                    Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION") ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(connectionString))
                 {
-                    services.Configure<CareCommerceServiceSettings>(
-                        hostContext.Configuration.GetSection("CareCommerceService"));
+                    connectionString = settings.SqlConnectionString ?? string.Empty;
+                }
 
-                    services.AddSingleton(provider =>
-                    {
-                        CareCommerceServiceSettings settings =
-                            hostContext.Configuration
-                                .GetSection("CareCommerceService")
-                                .Get<CareCommerceServiceSettings>() ?? new CareCommerceServiceSettings();
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    connectionString =
+                        builder.Configuration["CareCommerceService:SqlConnectionString"] ?? string.Empty;
+                }
 
-                        string connectionString = 
-                            Environment.GetEnvironmentVariable("DBC_CARECOMMERCE_SQL_CONNECTION") ?? string.Empty;
+                return new SqlConnectionFactory(connectionString);
+            });
 
-                        if (string.IsNullOrWhiteSpace(connectionString))
-                        {
-                            connectionString = settings.SqlConnectionString ?? string.Empty;
-                        }
+            builder.Services.AddScoped<ICatalogItemRepository, SqlCatalogItemRepository>();
+            builder.Services.AddScoped<ICareItemRepository, SqlCareItemRepository>();
+            builder.Services.AddScoped<IPendingChargeRepository, SqlPendingChargeRepository>();
+            builder.Services.AddScoped<IFullscriptTransactionRepository, SqlFullscriptTransactionRepository>();
 
-                        if (string.IsNullOrWhiteSpace(connectionString))
-                        {
-                            connectionString =
-                                hostContext.Configuration["CareCommerceService:SqlConnectionString"] ?? string.Empty;
-                        }
+            builder.Services.AddScoped<ICareItemApplicationService, CareItemApplicationService>();
+            builder.Services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
+            builder.Services.AddScoped<CareCommerceMiddlewareCommandService>();
+            builder.Services.AddScoped<FullscriptTransactionDispatcherService>();
 
-                        return new SqlConnectionFactory(connectionString);
-                    });
+            builder.Services.AddHostedService<Worker>();
 
-                    services.AddScoped<ICatalogItemRepository, SqlCatalogItemRepository>();
-                    services.AddScoped<ICareItemRepository, SqlCareItemRepository>();
-                    services.AddScoped<IPendingChargeRepository, SqlPendingChargeRepository>();
-                    services.AddScoped<IFullscriptTransactionRepository, SqlFullscriptTransactionRepository>();
-
-                    services.AddScoped<ICareItemApplicationService, CareItemApplicationService>();
-                    services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
-                    services.AddScoped<CareCommerceMiddlewareCommandService>();
-                    services.AddScoped<FullscriptTransactionDispatcherService>();
-
-                    services.AddHostedService<Worker>();
-                });
+            return builder.Build();
         }
     }
 }
