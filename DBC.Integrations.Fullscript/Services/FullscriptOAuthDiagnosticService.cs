@@ -141,26 +141,96 @@ namespace DBC.Integrations.Fullscript.Services
             using (JsonDocument document = JsonDocument.Parse(responseBody))
             {
                 JsonElement root = document.RootElement;
+                JsonElement tokenContainer = FindTokenContainer(root);
 
-                string accessToken = GetStringProperty(root, "access_token");
-                string refreshToken = GetStringProperty(root, "refresh_token");
+                string accessToken = GetStringProperty(tokenContainer, "access_token");
+                string refreshToken = GetStringProperty(tokenContainer, "refresh_token");
+
+                if (string.IsNullOrWhiteSpace(accessToken))
+                {
+                    accessToken = GetStringProperty(tokenContainer, "accessToken");
+                }
+
+                if (string.IsNullOrWhiteSpace(refreshToken))
+                {
+                    refreshToken = GetStringProperty(tokenContainer, "refreshToken");
+                }
 
                 return new
                 {
                     success = true,
-                    tokenType = GetStringProperty(root, "token_type"),
-                    expiresIn = GetIntProperty(root, "expires_in"),
-                    scope = GetStringProperty(root, "scope"),
+                    rootFields = GetPropertyNames(root),
+                    tokenContainerFields = GetPropertyNames(tokenContainer),
+                    tokenType = FirstNonEmpty(
+                        GetStringProperty(tokenContainer, "token_type"),
+                        GetStringProperty(tokenContainer, "tokenType")),
+                    expiresIn = FirstNonNull(
+                        GetIntProperty(tokenContainer, "expires_in"),
+                        GetIntProperty(tokenContainer, "expiresIn")),
+                    scope = GetStringProperty(tokenContainer, "scope"),
                     accessTokenPreview = PreviewSecret(accessToken),
+                    accessTokenPresent = !string.IsNullOrWhiteSpace(accessToken),
                     refreshTokenPresent = !string.IsNullOrWhiteSpace(refreshToken),
                     message = "OAuth token exchange completed. Full tokens were not returned by this diagnostic endpoint."
                 };
             }
         }
 
+        private static JsonElement FindTokenContainer(JsonElement root)
+        {
+            string[] containerNames = new[]
+            {
+                "data",
+                "token",
+                "tokens",
+                "oauth",
+                "result"
+            };
+
+            foreach (string containerName in containerNames)
+            {
+                if (root.TryGetProperty(containerName, out JsonElement container) &&
+                    container.ValueKind == JsonValueKind.Object)
+                {
+                    if (HasTokenLikeProperty(container))
+                    {
+                        return container;
+                    }
+                }
+            }
+
+            return root;
+        }
+
+        private static bool HasTokenLikeProperty(JsonElement element)
+        {
+            return element.TryGetProperty("access_token", out _) ||
+                element.TryGetProperty("accessToken", out _) ||
+                element.TryGetProperty("refresh_token", out _) ||
+                element.TryGetProperty("refreshToken", out _);
+        }
+
+        private static string[] GetPropertyNames(JsonElement element)
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                return new string[0];
+            }
+
+            List<string> propertyNames = new List<string>();
+
+            foreach (JsonProperty property in element.EnumerateObject())
+            {
+                propertyNames.Add(property.Name);
+            }
+
+            return propertyNames.ToArray();
+        }
+
         private static string GetStringProperty(JsonElement root, string propertyName)
         {
-            if (root.TryGetProperty(propertyName, out JsonElement property))
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty(propertyName, out JsonElement property))
             {
                 return property.ToString();
             }
@@ -170,13 +240,29 @@ namespace DBC.Integrations.Fullscript.Services
 
         private static int? GetIntProperty(JsonElement root, string propertyName)
         {
-            if (root.TryGetProperty(propertyName, out JsonElement property) &&
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty(propertyName, out JsonElement property) &&
                 property.TryGetInt32(out int value))
             {
                 return value;
             }
 
             return null;
+        }
+
+        private static int? FirstNonNull(int? first, int? second)
+        {
+            return first ?? second;
+        }
+
+        private static string FirstNonEmpty(string first, string second)
+        {
+            if (!string.IsNullOrWhiteSpace(first))
+            {
+                return first;
+            }
+
+            return second;
         }
 
         private static string PreviewSecret(string value)
