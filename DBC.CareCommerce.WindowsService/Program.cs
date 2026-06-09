@@ -5,6 +5,7 @@ using DBC.CareCommerce.Contracts.Services;
 using DBC.CareCommerce.Contracts.Services.Contracts;
 using DBC.CareCommerce.Data.DataAccess;
 using DBC.CareCommerce.Data.Repositories;
+using DBC.CareCommerce.WindowsService.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -57,6 +58,7 @@ namespace DBC.CareCommerce.WindowsService
 
                     services.AddScoped<ICareItemApplicationService, CareItemApplicationService>();
                     services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
+                    services.AddScoped<CareCommerceMiddlewareCommandService>();
                     services.AddScoped<FullscriptTransactionDispatcherService>();
 
                     services.AddHostedService<Worker>();
