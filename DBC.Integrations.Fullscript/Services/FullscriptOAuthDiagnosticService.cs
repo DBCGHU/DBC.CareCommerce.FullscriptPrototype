@@ -11,10 +11,12 @@ namespace DBC.Integrations.Fullscript.Services
     {
         private readonly HttpClient _httpClient;
         private readonly FullscriptApiSettings _settings;
+        private readonly IFullscriptOAuthTokenProvider _tokenProvider;
 
         public FullscriptOAuthDiagnosticService(
             HttpClient httpClient,
-            IOptions<FullscriptApiSettings> settings)
+            IOptions<FullscriptApiSettings> settings,
+            IFullscriptOAuthTokenProvider tokenProvider)
         {
             if (httpClient == null)
             {
@@ -26,8 +28,14 @@ namespace DBC.Integrations.Fullscript.Services
                 throw new ArgumentNullException("settings");
             }
 
+            if (tokenProvider == null)
+            {
+                throw new ArgumentNullException("tokenProvider");
+            }
+
             _httpClient = httpClient;
             _settings = settings.Value ?? new FullscriptApiSettings();
+            _tokenProvider = tokenProvider;
         }
 
         public string BuildAuthorizeUrl()
@@ -110,7 +118,14 @@ namespace DBC.Integrations.Fullscript.Services
                             };
                         }
 
-                        return ParseTokenResult(responseBody);
+                        FullscriptOAuthTokenResult tokenResult = ParseTokenResult(responseBody);
+
+                        if (tokenResult.Success)
+                        {
+                            _tokenProvider.StoreToken(tokenResult);
+                        }
+
+                        return tokenResult;
                     }
                 }
             }
@@ -123,6 +138,34 @@ namespace DBC.Integrations.Fullscript.Services
                     ReceivedAtUtc = DateTime.UtcNow
                 };
             }
+        }
+
+        public object GetCurrentTokenDiagnostic()
+        {
+            FullscriptOAuthTokenResult tokenResult = _tokenProvider.GetCurrentToken();
+
+            if (tokenResult == null || !tokenResult.HasAccessToken())
+            {
+                return new
+                {
+                    success = true,
+                    tokenStored = false,
+                    message = "No Fullscript OAuth token is stored in memory for this service process."
+                };
+            }
+
+            return new
+            {
+                success = true,
+                tokenStored = true,
+                tokenType = tokenResult.TokenType,
+                expiresIn = tokenResult.ExpiresIn,
+                scope = tokenResult.Scope,
+                accessTokenPreview = PreviewSecret(tokenResult.AccessToken),
+                refreshTokenPresent = tokenResult.HasRefreshToken(),
+                receivedAtUtc = tokenResult.ReceivedAtUtc,
+                message = "A Fullscript OAuth token is stored in memory for this service process. Full tokens were not returned by this diagnostic endpoint."
+            };
         }
 
         private string ValidateTokenExchangeConfiguration(string code)
@@ -198,6 +241,7 @@ namespace DBC.Integrations.Fullscript.Services
             return new
             {
                 success = tokenResult.Success,
+                tokenStored = true,
                 tokenType = tokenResult.TokenType,
                 expiresIn = tokenResult.ExpiresIn,
                 scope = tokenResult.Scope,
@@ -207,7 +251,7 @@ namespace DBC.Integrations.Fullscript.Services
                 createdAt = tokenResult.CreatedAt,
                 resourceOwnerPresent = !string.IsNullOrWhiteSpace(tokenResult.ResourceOwner),
                 receivedAtUtc = tokenResult.ReceivedAtUtc,
-                message = "OAuth token exchange completed. Full tokens were not returned by this diagnostic endpoint."
+                message = "OAuth token exchange completed and token was stored in memory. Full tokens were not returned by this diagnostic endpoint."
             };
         }
 
