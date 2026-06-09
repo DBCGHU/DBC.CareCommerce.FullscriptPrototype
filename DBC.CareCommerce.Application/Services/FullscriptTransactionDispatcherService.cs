@@ -10,10 +10,12 @@ namespace DBC.CareCommerce.Application.Services
     {
         private readonly IFullscriptTransactionRepository _fullscriptTransactionRepository;
         private readonly IFullscriptApiClient _fullscriptApiClient;
+        private readonly FullscriptPatientMapService _fullscriptPatientMapService;
 
         public FullscriptTransactionDispatcherService(
             IFullscriptTransactionRepository fullscriptTransactionRepository,
-            IFullscriptApiClient fullscriptApiClient)
+            IFullscriptApiClient fullscriptApiClient,
+            FullscriptPatientMapService fullscriptPatientMapService)
         {
             if (fullscriptTransactionRepository == null)
             {
@@ -25,8 +27,14 @@ namespace DBC.CareCommerce.Application.Services
                 throw new ArgumentNullException("fullscriptApiClient");
             }
 
+            if (fullscriptPatientMapService == null)
+            {
+                throw new ArgumentNullException("fullscriptPatientMapService");
+            }
+
             _fullscriptTransactionRepository = fullscriptTransactionRepository;
             _fullscriptApiClient = fullscriptApiClient;
+            _fullscriptPatientMapService = fullscriptPatientMapService;
         }
 
         public IList<FullscriptTransactionDto> DispatchReadyTransactions()
@@ -53,6 +61,8 @@ namespace DBC.CareCommerce.Application.Services
             {
                 return;
             }
+
+            ResolveMappedPatientId(transaction);
 
             string validationError = ValidateReadyTransaction(transaction);
 
@@ -108,6 +118,20 @@ namespace DBC.CareCommerce.Application.Services
 
             transaction.Status = "Sent";
             transaction.FullscriptTreatmentPlanId = dispatchResult.ExternalReferenceId;
+        }
+
+        private void ResolveMappedPatientId(FullscriptTransactionDto transaction)
+        {
+            if (!string.IsNullOrWhiteSpace(transaction.FullscriptPatientId))
+            {
+                return;
+            }
+
+            transaction.FullscriptPatientId =
+                _fullscriptPatientMapService.ResolveMappedFullscriptPatientId(
+                    transaction.PatientId,
+                    "UsSandbox",
+                    null);
         }
 
         private static string ValidateReadyTransaction(FullscriptTransactionDto transaction)
