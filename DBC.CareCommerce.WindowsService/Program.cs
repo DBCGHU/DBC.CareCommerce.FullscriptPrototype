@@ -35,9 +35,11 @@ namespace DBC.CareCommerce.WindowsService
 
             app.MapPost(
                 "/care-commerce/recommendations/validate",
-                (SubmitCareRecommendationRequest request) =>
+                (
+                    SubmitCareRecommendationRequest request,
+                    SubmitCareRecommendationRequestValidator validator) =>
                 {
-                    List<string> errors = ValidateSubmitCareRecommendationRequest(request);
+                    List<string> errors = validator.Validate(request);
 
                     return Results.Ok(new
                     {
@@ -104,59 +106,12 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<ICareItemApplicationService, CareItemApplicationService>();
             builder.Services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
             builder.Services.AddScoped<CareCommerceMiddlewareCommandService>();
+            builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
             builder.Services.AddScoped<FullscriptTransactionDispatcherService>();
 
             builder.Services.AddHostedService<Worker>();
 
             return builder.Build();
-        }
-
-        private static List<string> ValidateSubmitCareRecommendationRequest(
-            SubmitCareRecommendationRequest request)
-        {
-            List<string> errors = new List<string>();
-
-            if (request == null)
-            {
-                errors.Add("Request body is required.");
-                return errors;
-            }
-
-            if (request.PatientId <= 0)
-            {
-                errors.Add("PatientId is required.");
-            }
-
-            if (request.RequiresPatientCase && !request.PatientCaseId.HasValue)
-            {
-                errors.Add("PatientCaseId is required when RequiresPatientCase is true.");
-            }
-
-            if (!request.CatalogItemId.HasValue &&
-                !request.FeeId.HasValue &&
-                !request.ProductId.HasValue &&
-                !request.SupplementId.HasValue &&
-                string.IsNullOrWhiteSpace(request.FullscriptVariantId))
-            {
-                errors.Add("At least one item identifier is required: CatalogItemId, FeeId, ProductId, SupplementId, or FullscriptVariantId.");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.CareItemType))
-            {
-                errors.Add("CareItemType is required.");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.SourceSystem))
-            {
-                errors.Add("SourceSystem is required.");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.SourceEntityType))
-            {
-                errors.Add("SourceEntityType is required.");
-            }
-
-            return errors;
         }
     }
 }
