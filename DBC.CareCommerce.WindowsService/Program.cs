@@ -70,6 +70,13 @@ namespace DBC.CareCommerce.WindowsService
                     });
                 });
 
+            app.MapGet(
+                "/care-commerce/recommendations/{careItemId:int}",
+                (int careItemId, CareCommerceRecommendationReadService readService) =>
+                {
+                    return Results.Ok(readService.GetByCareItemId(careItemId));
+                });
+
             app.MapPost(
                 "/care-commerce/recommendations",
                 (SubmitCareRecommendationRequest request, CareCommerceMiddlewareCommandService commandService) =>
@@ -123,6 +130,7 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<ICareItemApplicationService, CareItemApplicationService>();
             builder.Services.AddScoped<ICareCommerceIntegrationService, CareCommerceIntegrationService>();
             builder.Services.AddScoped<CareCommerceMiddlewareCommandService>();
+            builder.Services.AddScoped<CareCommerceRecommendationReadService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
             builder.Services.AddScoped<FullscriptTransactionDispatcherService>();
 
