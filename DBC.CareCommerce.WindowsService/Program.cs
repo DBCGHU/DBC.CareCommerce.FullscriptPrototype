@@ -78,6 +78,13 @@ namespace DBC.CareCommerce.WindowsService
                 });
 
             app.MapPost(
+                "/fullscript/dispatch",
+                (FullscriptTransactionDispatcherService dispatcherService) =>
+                {
+                    return Results.Ok(dispatcherService.DispatchReadyTransactions());
+                });
+
+            app.MapPost(
                 "/care-commerce/recommendations",
                 (SubmitCareRecommendationRequest request, CareCommerceMiddlewareCommandService commandService) =>
                 {
