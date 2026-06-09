@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace DBC.CareCommerce.WindowsService
 {
@@ -196,8 +197,19 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<FullscriptTransactionReadService>();
             builder.Services.AddScoped<LocalMiddlewareAuthorizationService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
-            builder.Services.AddScoped<IFullscriptApiClient, StubFullscriptApiClient>();
             builder.Services.AddHttpClient<FullscriptHttpApiClient>();
+            builder.Services.AddScoped<IFullscriptApiClient>(provider =>
+            {
+                FullscriptApiSettings settings =
+                    provider.GetRequiredService<IOptions<FullscriptApiSettings>>().Value;
+
+                if (string.Equals(settings.ClientMode, "Http", StringComparison.OrdinalIgnoreCase))
+                {
+                    return provider.GetRequiredService<FullscriptHttpApiClient>();
+                }
+
+                return new StubFullscriptApiClient();
+            });
             builder.Services.AddScoped<FullscriptTransactionDispatcherService>();
 
             builder.Services.AddHostedService<Worker>();
