@@ -102,6 +102,22 @@ namespace DBC.CareCommerce.WindowsService
                     return Results.Ok(oauthDiagnosticService.ExchangeCodeForToken(code));
                 });
 
+            app.MapGet(
+                "/fullscript/oauth/token-status",
+                (
+                    HttpRequest httpRequest,
+                    FullscriptOAuthDiagnosticService oauthDiagnosticService,
+                    LocalMiddlewareAuthorizationService authorizationService) =>
+                {
+                    if (!authorizationService.IsAuthorized(
+                        httpRequest.Headers[LocalMiddlewareAuthorizationService.HeaderName].ToString()))
+                    {
+                        return Results.Unauthorized();
+                    }
+
+                    return Results.Ok(oauthDiagnosticService.GetCurrentTokenDiagnostic());
+                });
+
             app.MapPost(
                 "/care-commerce/recommendations/validate",
                 (
