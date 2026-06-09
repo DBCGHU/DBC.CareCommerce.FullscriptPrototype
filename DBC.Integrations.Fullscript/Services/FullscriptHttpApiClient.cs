@@ -70,7 +70,7 @@ namespace DBC.Integrations.Fullscript.Services
                     "application/json"))
                 {
                     using (HttpResponseMessage response =
-                        _httpClient.PostAsync("treatment_plans", content).GetAwaiter().GetResult())
+                        _httpClient.PostAsync(BuildTreatmentPlanEndpoint(transaction), content).GetAwaiter().GetResult())
                     {
                         string responseBody =
                             response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
@@ -202,28 +202,37 @@ namespace DBC.Integrations.Fullscript.Services
             }
         }
 
+        private static string BuildTreatmentPlanEndpoint(
+            FullscriptTransactionDto transaction)
+        {
+            return "api/clinic/patients/" +
+                Uri.EscapeDataString(transaction.FullscriptPatientId) +
+                "/treatment_plans";
+        }
+
         private static object BuildTreatmentPlanRequest(
             FullscriptTransactionDto transaction)
         {
             return new
             {
-                external_reference_id =
-                    transaction.FullscriptTransactionGuid.ToString(),
-                patient_id =
-                    transaction.FullscriptPatientId,
                 practitioner_id =
                     transaction.FullscriptPractitionerId,
-                items = new[]
+                state =
+                    "active",
+                recommendations = new[]
                 {
                     new
                     {
-                        product_id =
-                            transaction.FullscriptProductId,
                         variant_id =
                             transaction.FullscriptVariantId,
-                        quantity =
-                            1
+                        units_to_purchase =
+                            "1"
                     }
+                },
+                metadata = new
+                {
+                    id =
+                        transaction.FullscriptTransactionGuid.ToString()
                 }
             };
         }
@@ -239,14 +248,20 @@ namespace DBC.Integrations.Fullscript.Services
             {
                 JsonElement root = document.RootElement;
 
+                if (root.TryGetProperty("treatment_plan", out JsonElement treatmentPlanElement) &&
+                    treatmentPlanElement.TryGetProperty("id", out JsonElement treatmentPlanIdElement))
+                {
+                    return treatmentPlanIdElement.ToString();
+                }
+
                 if (root.TryGetProperty("id", out JsonElement idElement))
                 {
                     return idElement.ToString();
                 }
 
-                if (root.TryGetProperty("treatment_plan_id", out JsonElement treatmentPlanIdElement))
+                if (root.TryGetProperty("treatment_plan_id", out JsonElement treatmentPlanIdFallbackElement))
                 {
-                    return treatmentPlanIdElement.ToString();
+                    return treatmentPlanIdFallbackElement.ToString();
                 }
 
                 if (root.TryGetProperty("data", out JsonElement dataElement) &&
