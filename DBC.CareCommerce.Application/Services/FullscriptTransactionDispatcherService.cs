@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
@@ -125,6 +125,16 @@ namespace DBC.CareCommerce.Application.Services
             if (!transaction.CatalogItemId.HasValue)
             {
                 return "CatalogItemId is required before dispatching Fullscript transaction.";
+            }
+
+            if (string.IsNullOrWhiteSpace(transaction.FullscriptPatientId))
+            {
+                return "FullscriptPatientId is required before dispatching Fullscript transaction.";
+            }
+
+            if (string.IsNullOrWhiteSpace(transaction.FullscriptPractitionerId))
+            {
+                return "FullscriptPractitionerId is required before dispatching Fullscript transaction.";
             }
 
             if (string.IsNullOrWhiteSpace(transaction.FullscriptProductId))
