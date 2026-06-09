@@ -198,6 +198,7 @@ namespace DBC.CareCommerce.WindowsService
             builder.Services.AddScoped<CareCommerceRecommendationReadService>();
             builder.Services.AddScoped<FullscriptTransactionReadService>();
             builder.Services.AddScoped<FullscriptPatientMapService>();
+            builder.Services.AddScoped<FullscriptPatientSyncService>();
             builder.Services.AddScoped<LocalMiddlewareAuthorizationService>();
             builder.Services.AddScoped<SubmitCareRecommendationRequestValidator>();
             builder.Services.AddHttpClient<FullscriptHttpApiClient>();
