@@ -70,9 +70,9 @@ namespace DBC.CareCommerce.Application.Services
                 return;
             }
 
-            ResolveMappedPatientId(transaction);
+            string patientSyncError = ResolveMappedPatientId(transaction);
 
-            string validationError = ValidateReadyTransaction(transaction);
+            string validationError = ValidateReadyTransaction(transaction, patientSyncError);
 
             if (!string.IsNullOrWhiteSpace(validationError))
             {
@@ -128,11 +128,11 @@ namespace DBC.CareCommerce.Application.Services
             transaction.FullscriptTreatmentPlanId = dispatchResult.ExternalReferenceId;
         }
 
-        private void ResolveMappedPatientId(FullscriptTransactionDto transaction)
+        private string ResolveMappedPatientId(FullscriptTransactionDto transaction)
         {
             if (!string.IsNullOrWhiteSpace(transaction.FullscriptPatientId))
             {
-                return;
+                return null;
             }
 
             transaction.FullscriptPatientId =
@@ -143,7 +143,7 @@ namespace DBC.CareCommerce.Application.Services
 
             if (!string.IsNullOrWhiteSpace(transaction.FullscriptPatientId))
             {
-                return;
+                return null;
             }
 
             FullscriptPatientCreateResultDto createResult =
@@ -155,10 +155,21 @@ namespace DBC.CareCommerce.Application.Services
                 !string.IsNullOrWhiteSpace(createResult.FullscriptPatientId))
             {
                 transaction.FullscriptPatientId = createResult.FullscriptPatientId;
+                return null;
             }
+
+            if (createResult != null &&
+                !string.IsNullOrWhiteSpace(createResult.ErrorMessage))
+            {
+                return "Unable to create Fullscript patient: " + createResult.ErrorMessage;
+            }
+
+            return "Unable to create Fullscript patient.";
         }
 
-        private static string ValidateReadyTransaction(FullscriptTransactionDto transaction)
+        private static string ValidateReadyTransaction(
+            FullscriptTransactionDto transaction,
+            string patientSyncError)
         {
             if (transaction.PatientId <= 0)
             {
@@ -177,6 +188,11 @@ namespace DBC.CareCommerce.Application.Services
 
             if (string.IsNullOrWhiteSpace(transaction.FullscriptPatientId))
             {
+                if (!string.IsNullOrWhiteSpace(patientSyncError))
+                {
+                    return patientSyncError;
+                }
+
                 return "FullscriptPatientId is required before dispatching Fullscript transaction.";
             }
 
