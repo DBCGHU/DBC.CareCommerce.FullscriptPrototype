@@ -5,6 +5,7 @@ using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
 using DBC.CareCommerce.Contracts.Requests;
 using DBC.CareCommerce.Contracts.Responses;
+using DBC.CareCommerce.Contracts.Services;
 using DBC.CareCommerce.Data.DataAccess;
 using DBC.CareCommerce.Data.InMemory;
 using DBC.CareCommerce.Data.Repositories;
@@ -206,14 +207,27 @@ namespace DBC.CareCommerce.ConsoleRunner
             IFullscriptPatientMapRepository fullscriptPatientMapRepository =
                 new InMemoryFullscriptPatientMapRepository();
 
+            IPatientProfileRepository patientProfileRepository =
+                new SqlPatientProfileRepository(sqlConnectionFactory);
+
+            IFullscriptApiClient fullscriptApiClient =
+                new StubFullscriptApiClient();
+
             FullscriptPatientMapService fullscriptPatientMapService =
                 new FullscriptPatientMapService(fullscriptPatientMapRepository);
+
+            FullscriptPatientSyncService fullscriptPatientSyncService =
+                new FullscriptPatientSyncService(
+                    patientProfileRepository,
+                    fullscriptApiClient,
+                    fullscriptPatientMapRepository);
 
             FullscriptTransactionDispatcherService dispatcherService =
                 new FullscriptTransactionDispatcherService(
                     fullscriptTransactionRepository,
-                    new StubFullscriptApiClient(),
-                    fullscriptPatientMapService);
+                    fullscriptApiClient,
+                    fullscriptPatientMapService,
+                    fullscriptPatientSyncService);
 
             var dispatchedTransactions = dispatcherService.DispatchReadyTransactions();
 
