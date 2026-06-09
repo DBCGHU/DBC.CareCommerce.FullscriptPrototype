@@ -251,6 +251,8 @@ namespace DBC.CareCommerce.WindowsService
                 return new SqlConnectionFactory(connectionString);
             });
 
+            builder.Services.AddSingleton<IFullscriptOAuthTokenProvider, InMemoryFullscriptOAuthTokenProvider>();
+
             builder.Services.AddScoped<ICatalogItemRepository, SqlCatalogItemRepository>();
             builder.Services.AddScoped<ICareItemRepository, SqlCareItemRepository>();
             builder.Services.AddScoped<IPendingChargeRepository, SqlPendingChargeRepository>();
