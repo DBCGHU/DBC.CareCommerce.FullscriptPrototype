@@ -203,10 +203,17 @@ namespace DBC.CareCommerce.ConsoleRunner
 
             PrintPendingFullscriptTransactions(fullscriptTransactionRepository);
 
+            IFullscriptPatientMapRepository fullscriptPatientMapRepository =
+                new InMemoryFullscriptPatientMapRepository();
+
+            FullscriptPatientMapService fullscriptPatientMapService =
+                new FullscriptPatientMapService(fullscriptPatientMapRepository);
+
             FullscriptTransactionDispatcherService dispatcherService =
                 new FullscriptTransactionDispatcherService(
                     fullscriptTransactionRepository,
-                    new StubFullscriptApiClient());
+                    new StubFullscriptApiClient(),
+                    fullscriptPatientMapService);
 
             var dispatchedTransactions = dispatcherService.DispatchReadyTransactions();
 
