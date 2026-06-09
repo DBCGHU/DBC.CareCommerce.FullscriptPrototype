@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using DBC.CareCommerce.Contracts.Models;
 using DBC.CareCommerce.Contracts.Repositories;
 
@@ -25,7 +25,7 @@ namespace DBC.CareCommerce.WindowsService.Services
                 {
                     success = false,
                     fullscriptTransactionId = fullscriptTransactionId,
-                    transaction = (object)null,
+                    transaction = (FullscriptTransactionDto?)null,
                     errors = new List<string>
                     {
                         "Fullscript transaction was not found."
