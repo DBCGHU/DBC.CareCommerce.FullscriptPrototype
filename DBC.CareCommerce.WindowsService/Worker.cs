@@ -7,9 +7,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+
 
 namespace DBC.CareCommerce.WindowsService
 {
@@ -18,13 +20,13 @@ namespace DBC.CareCommerce.WindowsService
         private readonly ILogger<Worker> _logger;
         private readonly CareCommerceServiceSettings _settings;
         private readonly IConfiguration _configuration;
-        private readonly FullscriptTransactionDispatcherService _dispatcherService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
 
         public Worker(
             ILogger<Worker> logger,
             IOptions<CareCommerceServiceSettings> settings,
             IConfiguration configuration,
-            FullscriptTransactionDispatcherService dispatcherService)
+            IServiceScopeFactory serviceScopeFactory)
         {
             if (logger == null)
             {
@@ -41,15 +43,15 @@ namespace DBC.CareCommerce.WindowsService
                 throw new ArgumentNullException("configuration");
             }
 
-            if (dispatcherService == null)
+            if (serviceScopeFactory == null)
             {
-                throw new ArgumentNullException("dispatcherService");
+                throw new ArgumentNullException("serviceScopeFactory");
             }
 
             _logger = logger;
             _settings = settings.Value ?? new CareCommerceServiceSettings();
             _configuration = configuration;
-            _dispatcherService = dispatcherService;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -77,26 +79,32 @@ namespace DBC.CareCommerce.WindowsService
 
         private void DispatchReadyFullscriptTransactions()
         {
-            var dispatchedTransactions = _dispatcherService.DispatchReadyTransactions();
-
-            if (dispatchedTransactions.Count == 0)
+            using (IServiceScope scope = _serviceScopeFactory.CreateScope())
             {
-                _logger.LogInformation("No ReadyToSend Fullscript transactions found.");
-                return;
-            }
+                FullscriptTransactionDispatcherService dispatcherService =
+                    scope.ServiceProvider.GetRequiredService<FullscriptTransactionDispatcherService>();
 
-            _logger.LogInformation(
-                "Dispatched {Count} ReadyToSend Fullscript transaction(s).",
-                dispatchedTransactions.Count);
+                var dispatchedTransactions = dispatcherService.DispatchReadyTransactions();
 
-            foreach (FullscriptTransactionDto transaction in dispatchedTransactions)
-            {
+                if (dispatchedTransactions.Count == 0)
+                {
+                    _logger.LogInformation("No ReadyToSend Fullscript transactions found.");
+                    return;
+                }
+
                 _logger.LogInformation(
-                    "FullscriptTransactionID {FullscriptTransactionId} dispatched with Status {Status}, TreatmentPlanID {TreatmentPlanId}, ErrorMessage {ErrorMessage}.",
-                    transaction.FullscriptTransactionId,
-                    transaction.Status,
-                    transaction.FullscriptTreatmentPlanId,
-                    transaction.ErrorMessage);
+                    "Dispatched {Count} ReadyToSend Fullscript transaction(s).",
+                    dispatchedTransactions.Count);
+
+                foreach (FullscriptTransactionDto transaction in dispatchedTransactions)
+                {
+                    _logger.LogInformation(
+                        "FullscriptTransactionID {FullscriptTransactionId} dispatched with Status {Status}, TreatmentPlanID {TreatmentPlanId}, ErrorMessage {ErrorMessage}.",
+                        transaction.FullscriptTransactionId,
+                        transaction.Status,
+                        transaction.FullscriptTreatmentPlanId,
+                        transaction.ErrorMessage);
+                }
             }
         }
 

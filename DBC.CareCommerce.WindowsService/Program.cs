@@ -20,6 +20,18 @@ namespace DBC.CareCommerce.WindowsService
         {
             WebApplication app = CreateApplication(args);
 
+            app.MapGet(
+                "/health",
+                () =>
+                {
+                    return Results.Ok(new
+                    {
+                        status = "Healthy",
+                        service = "DBC Care Commerce Windows Service",
+                        timestampUtc = DateTime.UtcNow
+                    });
+                });
+
             app.MapPost(
                 "/care-commerce/recommendations",
                 (SubmitCareRecommendationRequest request, CareCommerceMiddlewareCommandService commandService) =>
