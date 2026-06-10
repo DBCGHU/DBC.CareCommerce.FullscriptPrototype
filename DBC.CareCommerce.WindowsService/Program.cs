@@ -118,6 +118,41 @@ namespace DBC.CareCommerce.WindowsService
                     return Results.Ok(oauthDiagnosticService.GetCurrentTokenDiagnostic());
                 });
 
+            app.MapGet(
+                "/fullscript/config-status",
+                (
+                    HttpRequest httpRequest,
+                    IOptions<FullscriptApiSettings> options,
+                    LocalMiddlewareAuthorizationService authorizationService) =>
+                {
+                    if (!authorizationService.IsAuthorized(
+                        httpRequest.Headers[LocalMiddlewareAuthorizationService.HeaderName].ToString()))
+                    {
+                        return Results.Unauthorized();
+                    }
+
+                    FullscriptApiSettings settings = options.Value;
+                    string resolvedClientMode = settings.ClientMode ?? string.Empty;
+                    bool selectsHttpClient =
+                        string.Equals(resolvedClientMode, "Http", StringComparison.OrdinalIgnoreCase);
+
+                    return Results.Ok(new
+                    {
+                        success = true,
+                        clientMode = resolvedClientMode,
+                        enabled = settings.Enabled,
+                        baseUrlConfigured = !string.IsNullOrWhiteSpace(settings.BaseUrl),
+                        apiTokenConfigured = !string.IsNullOrWhiteSpace(settings.ApiToken),
+                        oauthClientIdConfigured = !string.IsNullOrWhiteSpace(settings.OAuthClientId),
+                        oauthClientSecretConfigured = !string.IsNullOrWhiteSpace(settings.OAuthClientSecret),
+                        oauthRedirectUriConfigured = !string.IsNullOrWhiteSpace(settings.OAuthRedirectUri),
+                        oauthAuthorizeUrlConfigured = !string.IsNullOrWhiteSpace(settings.OAuthAuthorizeUrl),
+                        oauthTokenUrlConfigured = !string.IsNullOrWhiteSpace(settings.OAuthTokenUrl),
+                        selectedClient = selectsHttpClient ? "Http" : "Stub",
+                        timestampUtc = DateTime.UtcNow
+                    });
+                });
+
             app.MapPost(
                 "/care-commerce/recommendations/validate",
                 (
