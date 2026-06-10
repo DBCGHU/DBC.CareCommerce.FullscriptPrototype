@@ -223,6 +223,68 @@ namespace DBC.Integrations.Fullscript.Services
             }
         }
 
+        public FullscriptDiagnosticGetResult GetDiagnosticJson(string relativePath)
+        {
+            FullscriptDiagnosticGetResult pathValidationResult =
+                ValidateDiagnosticPath(relativePath);
+
+            if (!pathValidationResult.Success)
+            {
+                return pathValidationResult;
+            }
+
+            FullscriptDispatchResultDto configurationValidationResult =
+                ValidateConfiguration();
+
+            if (!configurationValidationResult.Success)
+            {
+                return new FullscriptDiagnosticGetResult
+                {
+                    Success = false,
+                    StatusCode = null,
+                    Path = relativePath,
+                    ResponseBody = null,
+                    ErrorMessage = configurationValidationResult.ErrorMessage
+                };
+            }
+
+            try
+            {
+                ConfigureHttpClient();
+
+                using (HttpResponseMessage response =
+                    _httpClient.GetAsync(relativePath).GetAwaiter().GetResult())
+                {
+                    string responseBody =
+                        response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+
+                    return new FullscriptDiagnosticGetResult
+                    {
+                        Success = response.IsSuccessStatusCode,
+                        StatusCode = (int)response.StatusCode,
+                        Path = relativePath,
+                        ResponseBody = responseBody,
+                        ErrorMessage = response.IsSuccessStatusCode
+                            ? null
+                            : "Fullscript diagnostic GET failed with status " +
+                                ((int)response.StatusCode).ToString() +
+                                "."
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                return new FullscriptDiagnosticGetResult
+                {
+                    Success = false,
+                    StatusCode = null,
+                    Path = relativePath,
+                    ResponseBody = null,
+                    ErrorMessage = "Fullscript diagnostic GET failed: " + ex.Message
+                };
+            }
+        }
+
         private FullscriptDispatchResultDto ValidateConfiguration()
         {
             if (!_settings.Enabled)
@@ -316,6 +378,56 @@ namespace DBC.Integrations.Fullscript.Services
                 _httpClient.DefaultRequestHeaders.Accept.Add(
                     new MediaTypeWithQualityHeaderValue("application/json"));
             }
+        }
+
+        private static FullscriptDiagnosticGetResult ValidateDiagnosticPath(string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                return new FullscriptDiagnosticGetResult
+                {
+                    Success = false,
+                    StatusCode = null,
+                    Path = relativePath,
+                    ResponseBody = null,
+                    ErrorMessage = "Fullscript diagnostic path is required."
+                };
+            }
+
+            if (relativePath.Contains(".."))
+            {
+                return new FullscriptDiagnosticGetResult
+                {
+                    Success = false,
+                    StatusCode = null,
+                    Path = relativePath,
+                    ResponseBody = null,
+                    ErrorMessage = "Fullscript diagnostic path cannot contain path traversal segments."
+                };
+            }
+
+            Uri absoluteUri;
+
+            if (Uri.TryCreate(relativePath, UriKind.Absolute, out absoluteUri))
+            {
+                return new FullscriptDiagnosticGetResult
+                {
+                    Success = false,
+                    StatusCode = null,
+                    Path = relativePath,
+                    ResponseBody = null,
+                    ErrorMessage = "Fullscript diagnostic path must be relative."
+                };
+            }
+
+            return new FullscriptDiagnosticGetResult
+            {
+                Success = true,
+                StatusCode = null,
+                Path = relativePath,
+                ResponseBody = null,
+                ErrorMessage = null
+            };
         }
 
         private static string BuildTreatmentPlanEndpoint(
@@ -503,5 +615,18 @@ namespace DBC.Integrations.Fullscript.Services
 
             return null;
         }
+    }
+
+    public sealed class FullscriptDiagnosticGetResult
+    {
+        public bool Success { get; set; }
+
+        public int? StatusCode { get; set; }
+
+        public string Path { get; set; }
+
+        public string ResponseBody { get; set; }
+
+        public string ErrorMessage { get; set; }
     }
 }
