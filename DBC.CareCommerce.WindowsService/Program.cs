@@ -153,6 +153,35 @@ namespace DBC.CareCommerce.WindowsService
                     });
                 });
 
+            app.MapGet(
+                "/fullscript/diagnostic/get",
+                (
+                    HttpRequest httpRequest,
+                    FullscriptHttpApiClient fullscriptHttpApiClient,
+                    LocalMiddlewareAuthorizationService authorizationService) =>
+                {
+                    if (!authorizationService.IsAuthorized(
+                        httpRequest.Headers[LocalMiddlewareAuthorizationService.HeaderName].ToString()))
+                    {
+                        return Results.Unauthorized();
+                    }
+
+                    string path = httpRequest.Query["path"].ToString();
+
+                    FullscriptDiagnosticGetResult result =
+                        fullscriptHttpApiClient.GetDiagnosticJson(path);
+
+                    return Results.Ok(new
+                    {
+                        success = result.Success,
+                        statusCode = result.StatusCode,
+                        path = result.Path,
+                        responseBody = result.ResponseBody,
+                        errorMessage = result.ErrorMessage,
+                        message = "Fullscript diagnostic GET completed. OAuth tokens and local secrets were not returned by this endpoint."
+                    });
+                });
+
             app.MapPost(
                 "/care-commerce/recommendations/validate",
                 (
@@ -274,7 +303,6 @@ namespace DBC.CareCommerce.WindowsService
 
             builder.Services.Configure<CareCommerceServiceSettings>(
                 builder.Configuration.GetSection("CareCommerceService"));
-
             builder.Services.Configure<FullscriptApiSettings>(
                 builder.Configuration.GetSection("FullscriptApi"));
 
